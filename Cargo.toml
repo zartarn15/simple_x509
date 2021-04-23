@@ -1,0 +1,16 @@
+[package]
+name = "simple_x509"
+version = "0.1.0"
+authors = ["Oleksandr Kravchenko <zartarn15@gmail.com>"]
+description = "A simple X509 creating library."
+categories = ["encoding"]
+keywords = ["X509"]
+license = "ISC"
+repository = "https://github.com/zartarn15/simple_x509"
+edition = "2018"
+
+[dependencies]
+pretty-hex = "0.2.1"
+simple_asn1 = "0.5.1"
+chrono = { default-features = false, features = ["alloc"], version = "0.4" }
+ring = "0.16.20"
