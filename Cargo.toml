@@ -10,7 +10,8 @@ repository = "https://github.com/zartarn15/simple_x509"
 edition = "2018"
 
 [dependencies]
-pretty-hex = "0.2.1"
 simple_asn1 = "0.5.1"
 chrono = { default-features = false, features = ["alloc"], version = "0.4" }
+
+[dev-dependencies]
 ring = "0.16.20"
