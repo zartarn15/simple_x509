@@ -1,3 +1,6 @@
+//! This is a simple library for creating X509 certificates.
+//! The library is based on simple_asn1: https://crates.io/crates/simple_asn1
+
 use chrono::{TimeZone, Utc};
 use simple_asn1::{ASN1Block, ASN1Class, BigInt, BigUint, OID};
 
