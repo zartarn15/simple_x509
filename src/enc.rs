@@ -1,6 +1,4 @@
-//! This is a simple library for creating X509 certificates.
-//! The library is based on simple_asn1: https://crates.io/crates/simple_asn1
-
+use crate::X509Ext;
 use chrono::{TimeZone, Utc};
 use simple_asn1::{ASN1Block, ASN1Class, BigInt, BigUint, OID};
 
@@ -36,13 +34,6 @@ struct EcPub {
 enum PubKey {
     Rsa(RsaPub),
     Ec(EcPub),
-}
-
-#[derive(Debug, PartialEq)]
-struct X509Ext {
-    oid: Vec<u64>,
-    critical: bool,
-    data: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -414,7 +405,12 @@ impl X509Builder {
         self
     }
 
-    pub fn ext(mut self, oid: Vec<u64>, critical: bool, data: Vec<u8>) -> X509Builder {
+    pub fn ext(mut self, ext: X509Ext) -> X509Builder {
+        self.ext.push(ext);
+        self
+    }
+
+    pub fn ext_raw(mut self, oid: Vec<u64>, critical: bool, data: Vec<u8>) -> X509Builder {
         let ext = X509Ext {
             oid: oid,
             critical: critical,

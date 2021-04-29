@@ -1,6 +1,6 @@
 use ring::rand;
 use ring::signature::{self};
-use simple_x509::{X509Builder, X509};
+use simple_x509::*;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
@@ -127,7 +127,6 @@ fn x509_ec_root_test() {
             pub_ec_key,
             vec![ 1, 2, 840, 10045, 3, 1, 7 ], /* prime256v1 (ANSI X9.62 named elliptic curve) */
         )
-
         .build();
 
     let der = match x.to_der(|c| ec_sign_fn(c)) {
@@ -136,5 +135,87 @@ fn x509_ec_root_test() {
     };
 
     let err = write_file("tests/data/ca_ec.der", &der).map_err(|e| e.kind());
+    assert_eq!(err, Ok(()));
+}
+
+#[test]
+fn x509_extension_raw() {
+    let pub_ec_key: Vec<u8> = vec![
+        0x04, 0xFE, 0x0B, 0x0F, 0x80, 0x27, 0x39, 0xCC, 0x47, 0xD7, 0x86, 0xEE, 0x0D, 0xAE, 0xE5,
+        0x67, 0x77, 0x14, 0xBC, 0xBE, 0xAF, 0x9E, 0x90, 0xA1, 0x8C, 0xF3, 0x5C, 0xC8, 0x57, 0x9F,
+        0xFA, 0xB3, 0x9D, 0xEE, 0xD8, 0x55, 0x82, 0xCA, 0x3B, 0x68, 0x72, 0x14, 0xE5, 0xAE, 0x42,
+        0xBE, 0x0D, 0xAD, 0x5B, 0xDA, 0xAC, 0xEB, 0x0A, 0x5D, 0xDA, 0x01, 0x5D, 0xF6, 0xD4, 0x73,
+        0x2A, 0xFB, 0x9E, 0xAB, 0x10,
+    ];
+
+    let common_name = "Name name";
+
+    let x: X509 = X509Builder::new(0xf2f9d803d7b7d734)
+        .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
+        .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
+        .not_before(1_619_014_703)
+        .not_after(1_650_550_703)
+        .pub_key_ec(
+            vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
+            vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
+            pub_ec_key,
+            vec![ 1, 2, 840, 10045, 3, 1, 7 ], /* prime256v1 (ANSI X9.62 named elliptic curve) */
+        )
+        .ext_raw(
+            vec![ 2, 5, 29, 15 ], /* keyUsage (X.509 extension) */
+            true,
+            vec![ 0x03, 0x02, 0x04, 0xB0 ],
+        )
+        .build();
+
+    let der = match x.to_der(|c| ec_sign_fn(c)) {
+        Some(d) => d,
+        None => panic!("x5092der() failed"),
+    };
+
+    let err = write_file("tests/data/ca_extension_raw.der", &der).map_err(|e| e.kind());
+    assert_eq!(err, Ok(()));
+}
+
+#[test]
+fn x509_key_usage_extension() {
+    let pub_ec_key: Vec<u8> = vec![
+        0x04, 0xFE, 0x0B, 0x0F, 0x80, 0x27, 0x39, 0xCC, 0x47, 0xD7, 0x86, 0xEE, 0x0D, 0xAE, 0xE5,
+        0x67, 0x77, 0x14, 0xBC, 0xBE, 0xAF, 0x9E, 0x90, 0xA1, 0x8C, 0xF3, 0x5C, 0xC8, 0x57, 0x9F,
+        0xFA, 0xB3, 0x9D, 0xEE, 0xD8, 0x55, 0x82, 0xCA, 0x3B, 0x68, 0x72, 0x14, 0xE5, 0xAE, 0x42,
+        0xBE, 0x0D, 0xAD, 0x5B, 0xDA, 0xAC, 0xEB, 0x0A, 0x5D, 0xDA, 0x01, 0x5D, 0xF6, 0xD4, 0x73,
+        0x2A, 0xFB, 0x9E, 0xAB, 0x10,
+    ];
+
+    let common_name = "Name name";
+
+    let key_usage = X509ExtBuilder::new()
+        .key_usage(vec![
+            X509KeyUsage::DigitalSignature,
+            X509KeyUsage::KeyEncipherment,
+            X509KeyUsage::DataEncipherment,
+        ])
+        .build();
+
+    let x: X509 = X509Builder::new(0xf2f9d803d7b7d734)
+        .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
+        .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
+        .not_before(1_619_014_703)
+        .not_after(1_650_550_703)
+        .pub_key_ec(
+            vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
+            vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
+            pub_ec_key,
+            vec![ 1, 2, 840, 10045, 3, 1, 7 ], /* prime256v1 (ANSI X9.62 named elliptic curve) */
+        )
+        .ext(key_usage)
+        .build();
+
+    let der = match x.to_der(|c| ec_sign_fn(c)) {
+        Some(d) => d,
+        None => panic!("x.to_der() failed"),
+    };
+
+    let err = write_file("tests/data/ca_key_usage.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
 }
