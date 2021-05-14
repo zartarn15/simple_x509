@@ -48,140 +48,141 @@ pub struct X509 {
     ext: Vec<X509Ext>,
 }
 
+fn serialize(a: &ASN1Block) -> Option<Vec<u8>> {
+    match simple_asn1::to_der(a) {
+        Ok(d) => Some(d),
+        Err(_) => None,
+    }
+}
+
+fn oid_new(id: &Vec<u64>) -> OID {
+    let mut res = Vec::new();
+
+    for i in 0..id.len() {
+        res.push(BigUint::from(id[i]));
+    }
+
+    OID::new(res)
+}
+
+fn seq_oid_utf8(v: &OidStr) -> Vec<ASN1Block> {
+    let mut vec = Vec::new();
+    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
+    vec.push(ASN1Block::PrintableString(1, String::from(&v.data)));
+
+    let mut seq = Vec::new();
+    seq.push(ASN1Block::Sequence(0, vec));
+
+    seq
+}
+
+fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
+    let mut vec = Vec::new();
+    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
+    vec.push(ASN1Block::UTF8String(1, String::from(&v.data)));
+
+    let mut seq = Vec::new();
+    seq.push(ASN1Block::Sequence(0, vec));
+
+    seq
+}
+
+fn x509_name(name: Vec<X509Name>) -> Vec<ASN1Block> {
+    let mut n = Vec::new();
+
+    for i in 0..name.len() {
+        match &name[i] {
+            X509Name::Utf8(s) => n.push(ASN1Block::Set(0, seq_oid_str(s))),
+            X509Name::PrStr(s) => n.push(ASN1Block::Set(0, seq_oid_utf8(s))),
+        }
+    }
+
+    n
+}
+
+fn version_explicit(val: u64) -> ASN1Block {
+    ASN1Block::Explicit(
+        ASN1Class::ContextSpecific,
+        0,
+        BigUint::from(0 as u32),
+        Box::new(ASN1Block::Integer(0, BigInt::from(val))),
+    )
+}
+
+fn extension_explicit(ext: Vec<ASN1Block>) -> ASN1Block {
+    ASN1Block::Explicit(
+        ASN1Class::ContextSpecific,
+        0,
+        BigUint::from(3 as u32),
+        Box::new(ASN1Block::Sequence(0, ext)),
+    )
+}
+
+fn x509_ext(e: &X509Ext) -> Vec<ASN1Block> {
+    let mut ext = Vec::new();
+    ext.push(ASN1Block::ObjectIdentifier(0, oid_new(&e.oid)));
+    if e.critical {
+        ext.push(ASN1Block::Boolean(0, true));
+    }
+    ext.push(ASN1Block::OctetString(0, e.data.clone()));
+
+    ext
+}
+
+fn null_oid(oid: &Vec<u64>) -> Vec<ASN1Block> {
+    let mut sa = Vec::new();
+    sa.push(ASN1Block::ObjectIdentifier(0, oid_new(oid)));
+    sa.push(ASN1Block::Null(0));
+
+    sa
+}
+
+fn vec_oid(oid: &Vec<u64>) -> Vec<ASN1Block> {
+    let mut sa = Vec::new();
+    sa.push(ASN1Block::ObjectIdentifier(0, oid_new(oid)));
+
+    sa
+}
+
+fn rsa_pub(rsa: &RsaPub) -> Option<Vec<ASN1Block>> {
+    let mut r = Vec::new();
+    r.push(ASN1Block::Integer(0, BigInt::from_signed_bytes_be(&rsa.n)));
+    r.push(ASN1Block::Integer(0, BigInt::from(rsa.e)));
+
+    let der = match simple_asn1::to_der(&ASN1Block::Sequence(0, r)) {
+        Ok(d) => d,
+        Err(_) => {
+            println!("Failed: serialize RSA pubkey");
+            return None;
+        }
+    };
+
+    let mut ret = Vec::new();
+    ret.push(ASN1Block::Sequence(0, null_oid(&rsa.pub_oid)));
+    ret.push(ASN1Block::BitString(0, der.len() * 8, der));
+
+    Some(ret)
+}
+
+fn ec_pub(ec: &EcPub) -> Vec<ASN1Block> {
+    let mut e = Vec::new();
+    e.push(ASN1Block::ObjectIdentifier(0, oid_new(&ec.pub_oid)));
+    e.push(ASN1Block::ObjectIdentifier(0, oid_new(&ec.curve)));
+
+    let mut ret = Vec::new();
+    ret.push(ASN1Block::Sequence(0, e));
+    ret.push(ASN1Block::BitString(0, ec.key.len() * 8, ec.key.clone()));
+
+    ret
+}
+
+
 impl X509 {
     pub fn builder() -> X509Builder {
         X509Builder::default()
     }
 
-    fn serialize(a: &ASN1Block) -> Option<Vec<u8>> {
-        match simple_asn1::to_der(a) {
-            Ok(d) => Some(d),
-            Err(_) => None,
-        }
-    }
-
-    fn oid_new(id: &Vec<u64>) -> OID {
-        let mut res = Vec::new();
-
-        for i in 0..id.len() {
-            res.push(BigUint::from(id[i]));
-        }
-
-        OID::new(res)
-    }
-
-    fn seq_oid_utf8(v: &OidStr) -> Vec<ASN1Block> {
-        let mut vec = Vec::new();
-        vec.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(&v.oid)));
-        vec.push(ASN1Block::PrintableString(1, String::from(&v.data)));
-
-        let mut seq = Vec::new();
-        seq.push(ASN1Block::Sequence(0, vec));
-
-        seq
-    }
-
-    fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
-        let mut vec = Vec::new();
-        vec.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(&v.oid)));
-        vec.push(ASN1Block::UTF8String(1, String::from(&v.data)));
-
-        let mut seq = Vec::new();
-        seq.push(ASN1Block::Sequence(0, vec));
-
-        seq
-    }
-
-    fn x509_name(name: Vec<X509Name>) -> Vec<ASN1Block> {
-        let mut n = Vec::new();
-
-        for i in 0..name.len() {
-            match &name[i] {
-                X509Name::Utf8(s) => n.push(ASN1Block::Set(0, X509::seq_oid_str(s))),
-                X509Name::PrStr(s) => n.push(ASN1Block::Set(0, X509::seq_oid_utf8(s))),
-            }
-        }
-
-        n
-    }
-
-    fn version_explicit(val: u64) -> ASN1Block {
-        ASN1Block::Explicit(
-            ASN1Class::ContextSpecific,
-            0,
-            BigUint::from(0 as u32),
-            Box::new(ASN1Block::Integer(0, BigInt::from(val))),
-        )
-    }
-
-    fn extension_explicit(ext: Vec<ASN1Block>) -> ASN1Block {
-        ASN1Block::Explicit(
-            ASN1Class::ContextSpecific,
-            0,
-            BigUint::from(3 as u32),
-            Box::new(ASN1Block::Sequence(0, ext)),
-        )
-    }
-
-    fn x509_ext(e: &X509Ext) -> Vec<ASN1Block> {
-        let mut ext = Vec::new();
-        ext.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(&e.oid)));
-        if e.critical {
-            ext.push(ASN1Block::Boolean(0, true));
-        }
-        ext.push(ASN1Block::OctetString(0, e.data.clone()));
-
-        ext
-    }
-
-    fn null_oid(oid: &Vec<u64>) -> Vec<ASN1Block> {
-        let mut sa = Vec::new();
-        sa.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(oid)));
-        sa.push(ASN1Block::Null(0));
-
-        sa
-    }
-
-    fn vec_oid(oid: &Vec<u64>) -> Vec<ASN1Block> {
-        let mut sa = Vec::new();
-        sa.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(oid)));
-
-        sa
-    }
-
-    fn rsa_pub(rsa: &RsaPub) -> Option<Vec<ASN1Block>> {
-        let mut r = Vec::new();
-        r.push(ASN1Block::Integer(0, BigInt::from_signed_bytes_be(&rsa.n)));
-        r.push(ASN1Block::Integer(0, BigInt::from(rsa.e)));
-
-        let der = match simple_asn1::to_der(&ASN1Block::Sequence(0, r)) {
-            Ok(d) => d,
-            Err(_) => {
-                println!("Failed: serialize RSA pubkey");
-                return None;
-            }
-        };
-
-        let mut ret = Vec::new();
-        ret.push(ASN1Block::Sequence(0, X509::null_oid(&rsa.pub_oid)));
-        ret.push(ASN1Block::BitString(0, der.len() * 8, der));
-
-        Some(ret)
-    }
-
-    fn ec_pub(ec: &EcPub) -> Vec<ASN1Block> {
-        let mut e = Vec::new();
-        e.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(&ec.pub_oid)));
-        e.push(ASN1Block::ObjectIdentifier(0, X509::oid_new(&ec.curve)));
-
-        let mut ret = Vec::new();
-        ret.push(ASN1Block::Sequence(0, e));
-        ret.push(ASN1Block::BitString(0, ec.key.len() * 8, ec.key.clone()));
-
-        ret
-    }
-
-    pub fn to_der<F>(self, sign_cb: F) -> Option<Vec<u8>>
+    pub fn x509_enc<F>(self, sign_cb: F) -> Option<Vec<u8>>
     where
         F: Fn(Vec<u8>) -> Option<Vec<u8>>,
     {
@@ -189,7 +190,7 @@ impl X509 {
 
         /* Version */
         if let Some(v) = self.version {
-            body.push(X509::version_explicit(v));
+            body.push(version_explicit(v));
         }
 
         /* Serial Number */
@@ -198,10 +199,10 @@ impl X509 {
         /* Signature Algorithm */
         match self.pub_key {
             Some(PubKey::Rsa(ref rsa)) => {
-                body.push(ASN1Block::Sequence(0, X509::null_oid(&rsa.sign_oid)))
+                body.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
             }
             Some(PubKey::Ec(ref ec)) => {
-                body.push(ASN1Block::Sequence(0, X509::vec_oid(&ec.sign_oid)))
+                body.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid)))
             }
             None => {
                 println!("Failed: no public key");
@@ -211,7 +212,7 @@ impl X509 {
 
         /* Issuer name */
         if self.issuer.len() > 0 {
-            body.push(ASN1Block::Sequence(0, X509::x509_name(self.issuer)));
+            body.push(ASN1Block::Sequence(0, x509_name(self.issuer)));
         } else {
             println!("Failed: no issuer name");
             return None;
@@ -225,7 +226,7 @@ impl X509 {
 
         /* Subject name */
         if self.subject.len() > 0 {
-            body.push(ASN1Block::Sequence(0, X509::x509_name(self.subject)));
+            body.push(ASN1Block::Sequence(0, x509_name(self.subject)));
         } else {
             println!("Failed: no subject name");
             return None;
@@ -234,13 +235,13 @@ impl X509 {
         /* Subject Public Key Info */
         match self.pub_key {
             Some(PubKey::Rsa(ref rsa)) => {
-                let rsa_vec = match X509::rsa_pub(rsa) {
+                let rsa_vec = match rsa_pub(rsa) {
                     Some(r) => r,
                     None => return None,
                 };
                 body.push(ASN1Block::Sequence(0, rsa_vec));
             }
-            Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, X509::ec_pub(ec))),
+            Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, ec_pub(ec))),
             None => return None,
         }
 
@@ -249,15 +250,15 @@ impl X509 {
         for i in 0..self.ext.len() {
             ext.push(ASN1Block::Sequence(
                 0,
-                X509::x509_ext(&self.ext[self.ext.len() - i - 1]),
+                x509_ext(&self.ext[self.ext.len() - i - 1]),
             ));
         }
         if self.ext.len() > 0 {
-            body.push(X509::extension_explicit(ext));
+            body.push(extension_explicit(ext));
         }
 
         /* Get signature  */
-        let data = match X509::serialize(&ASN1Block::Sequence(0, body.clone())) {
+        let data = match serialize(&ASN1Block::Sequence(0, body.clone())) {
             Some(d) => d,
             None => {
                 println!("Failed: serialize()");
@@ -277,10 +278,10 @@ impl X509 {
         x509.push(ASN1Block::Sequence(0, body));
         match self.pub_key {
             Some(PubKey::Rsa(ref rsa)) => {
-                x509.push(ASN1Block::Sequence(0, X509::null_oid(&rsa.sign_oid)))
+                x509.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
             }
             Some(PubKey::Ec(ref ec)) => {
-                x509.push(ASN1Block::Sequence(0, X509::vec_oid(&ec.sign_oid)))
+                x509.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid)))
             }
             None => return None,
         }
@@ -290,7 +291,7 @@ impl X509 {
 
         let mut x509_full = Vec::new();
         x509_full.push(ASN1Block::Sequence(0, x509));
-        X509::serialize(x509_full.first().unwrap())
+        serialize(x509_full.first().unwrap())
     }
 }
 

@@ -72,7 +72,7 @@ fn x509_rsa_root_test() {
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
 
-    let x: X509 = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(0xf2f9d803d7b7d734)
         .issuer_prstr(vec![2, 5, 4, 6], country) /* countryName */
         .issuer_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
         .issuer_utf8(vec![2, 5, 4, 10], organization) /* organizationName */
@@ -89,7 +89,7 @@ fn x509_rsa_root_test() {
         )
         .build();
 
-    let der = match x.to_der(|c| rsa_sign_fn(c)) {
+    let der = match x.x509_enc(|c| rsa_sign_fn(c)) {
         Some(d) => d,
         None => panic!("x5092der() failed"),
     };
@@ -112,7 +112,7 @@ fn x509_ec_root_test() {
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
 
-    let x: X509 = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(0xf2f9d803d7b7d734)
         .issuer_prstr(vec![ 2, 5, 4, 6 ], country) /* countryName */
         .issuer_utf8(vec![ 2, 5, 4, 8 ], state) /* stateOrProvinceName */
         .issuer_utf8(vec![ 2, 5, 4, 10 ], organization) /* organizationName */
@@ -129,7 +129,7 @@ fn x509_ec_root_test() {
         )
         .build();
 
-    let der = match x.to_der(|c| ec_sign_fn(c)) {
+    let der = match x.x509_enc(|c| ec_sign_fn(c)) {
         Some(d) => d,
         None => panic!("x5092der() failed"),
     };
@@ -150,7 +150,7 @@ fn x509_extension_raw() {
 
     let common_name = "Name name";
 
-    let x: X509 = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(0xf2f9d803d7b7d734)
         .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
         .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
         .not_before(1_619_014_703)
@@ -168,7 +168,7 @@ fn x509_extension_raw() {
         )
         .build();
 
-    let der = match x.to_der(|c| ec_sign_fn(c)) {
+    let der = match x.x509_enc(|c| ec_sign_fn(c)) {
         Some(d) => d,
         None => panic!("x5092der() failed"),
     };
@@ -197,7 +197,7 @@ fn x509_key_usage_extension() {
         ])
         .build();
 
-    let x: X509 = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(0xf2f9d803d7b7d734)
         .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
         .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
         .not_before(1_619_014_703)
