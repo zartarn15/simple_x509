@@ -1,6 +1,8 @@
 use crate::X509Ext;
-use chrono::{TimeZone, Utc};
+use chrono::{DateTime, TimeZone, Utc};
 use simple_asn1::{ASN1Block, ASN1Class, BigInt, BigUint, OID};
+use num_traits::cast::ToPrimitive;
+use std::ops::Deref;
 
 #[derive(Debug, PartialEq)]
 struct OidStr {
@@ -432,5 +434,264 @@ impl X509Builder {
             pub_key: self.pub_key,
             ext: self.ext,
         }
+    }
+}
+
+fn get_asn1_seq(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
+    let block = v.get(idx)?;
+    match block {
+        ASN1Block::Sequence(_, vec) => Some(vec),
+        _ => None,
+    }
+}
+
+fn get_asn1_set(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
+    let block = v.get(idx)?;
+    match block {
+        ASN1Block::Set(_, vec) => Some(vec),
+        _ => None,
+    }
+}
+
+fn get_asn1_uint64(v: &Vec<ASN1Block>, idx: usize) -> Option<u64> {
+    let block = v.get(idx)?;
+    match block {
+        ASN1Block::Integer(_, b) => b.to_u64(),
+        _ => None,
+    }
+}
+
+fn get_version(v: &Vec<ASN1Block>) -> Option<u64> {
+    let block = v.get(0)?;
+    match block {
+        ASN1Block::Explicit(_, _, tag, val) =>
+            if tag.to_u64() == Some(0) {
+                match Deref::deref(val) {
+                    ASN1Block::Integer(_, b) => b.to_u64(),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        _ => None,
+    }
+}
+
+fn get_sign_oid(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<u64>> {
+    let vec = get_asn1_seq(v, idx)?;
+    match vec.get(0)? {
+        ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok(),
+        _ => return None,
+    }
+}
+
+fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
+    let vec = get_asn1_seq(v, idx)?;
+    let mut ret = Vec::new();
+
+    for i in 0..vec.len() {
+        let set = get_asn1_set(vec, i)?;
+        let seq = get_asn1_seq(set, 0)?;
+        let oid = match seq.get(0)? {
+            ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok()?,
+            _ => return None,
+        };
+
+        let name = match seq.get(1)? {
+            ASN1Block::UTF8String(_, d) => X509Name::Utf8(OidStr { oid: oid, data: d.to_string()}),
+            ASN1Block::PrintableString(_, d) => X509Name::PrStr(OidStr { oid: oid, data: d.to_string()}),
+            _ => return None,
+        };
+
+        ret.push(name);
+    }
+
+    Some(ret)
+}
+
+fn get_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
+    let vec = get_asn1_seq(v, idx)?;
+    println!(">>> {:?}", vec);
+    None
+}
+
+fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(i64, i64)> {
+    let vec = get_asn1_seq(v, idx)?;
+
+    let not_before = match vec.get(0)? {
+        ASN1Block::UTCTime(_, t) => DateTime::<Utc>::timestamp(t),
+        _ => return None,
+    };
+
+    let not_after = match vec.get(1)? {
+        ASN1Block::UTCTime(_, t) => DateTime::<Utc>::timestamp(t),
+        _ => return None,
+    };
+
+    Some((not_before, not_after))
+}
+
+fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
+    let mut ret = Vec::new();
+
+    for i in 0..v.len() {
+        let seq = get_asn1_seq(v, i)?;
+        let oid = match seq.get(0)? {
+            ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok()?,
+            _ => return None,
+        };
+
+        let critical = match seq.get(1)? {
+            ASN1Block::Boolean(_, c) => c,
+            _ => return None,
+        };
+
+        let data = match seq.get(2)? {
+            ASN1Block::OctetString(_, d) => d,
+            _ => return None,
+        };
+
+        ret.push(X509Ext {oid: oid, critical: *critical, data: data.to_vec()});
+    }
+
+    Some(ret)
+}
+
+fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
+    let block = v.get(idx)?;
+
+    match block {
+        ASN1Block::Explicit(_, _, tag, val) =>
+            if tag.to_u64() == Some(3) {
+                match Deref::deref(val) {
+                    ASN1Block::Sequence(_, e) => get_ext_raw(e),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        _ => None,
+    }
+}
+
+pub trait X509Deserialize {
+    fn x509_dec(&self) -> Option<X509>;
+}
+
+impl X509Deserialize for Vec<u8> {
+    fn x509_dec(&self) -> Option<X509> {
+        let x509_full = match simple_asn1::from_der(self) {
+            Ok(a) => a,
+            Err(_) => {
+                println!("Failed: simple_asn1::from_der()");
+                return None;
+            },
+        };
+
+        let x509 = match get_asn1_seq(&x509_full, 0) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get x509");
+                return None;
+            },
+        };
+
+        let body = match get_asn1_seq(&x509, 0) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get body");
+                return None;
+            },
+        };
+
+        /* Version */
+        let version = get_version(body);
+        let mut idx = match version {
+            Some(_) => 1,
+            None => 0,
+        };
+
+        /* Serial Number */
+        let sn = match get_asn1_uint64(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get SerialNumber");
+                return None;
+            },
+        };
+        idx += 1;
+
+        /* Signature Algorithm */
+        let sign_oid = match get_sign_oid(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Signature Algorithm OID");
+                return None;
+            },
+        };
+        idx += 1;
+
+        /* Issuer */
+        let issuer = match get_x509_name(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Issuer");
+                return None;
+            },
+        };
+        idx += 1;
+
+        /* Validity time */
+        let (not_before, not_after) = match get_x509_time(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Validity time");
+                return None;
+            },
+        };
+        idx += 1;
+
+        /* Subject */
+        let subject = match get_x509_name(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Subject");
+                return None;
+            },
+        };
+        idx += 1;
+
+        /* Subject Public Key Info */
+        let pub_key = get_pub_key(body, idx);
+        if pub_key  == None {
+            println!("Failed to get Subject Public Key");
+            return None;
+        }
+        idx += 1;
+
+        /* Extensions */
+        let ext = match get_extensions(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Extensions");
+                return None;
+            },
+        };
+        if ext.len() > 0 {
+            idx += 1;
+        }
+
+        let x = X509 {
+            version: version,
+            sn: sn,
+            issuer: issuer,
+            subject: subject,
+            not_before: not_before,
+            not_after: not_after,
+            pub_key: pub_key,
+            ext: ext,
+        };
+
+        Some(x)
     }
 }

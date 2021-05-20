@@ -213,11 +213,18 @@ fn x509_key_usage_extension() {
         .ext(key_usage)
         .build();
 
-    let der = match x.to_der(|c| ec_sign_fn(c)) {
+    let der = match x.x509_enc(|c| ec_sign_fn(c)) {
         Some(d) => d,
-        None => panic!("x.to_der() failed"),
+        None => panic!("x.x509_enc() failed"),
     };
 
     let err = write_file("tests/data/ca_key_usage.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
+}
+
+#[test]
+fn x509_deserialize() {
+    let der = read_file("tests/data/cert_rsa.der").unwrap_or_else(|_| panic!("File not found"));
+    let x = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
+    println!("TEST:\n{:?}", x);
 }
