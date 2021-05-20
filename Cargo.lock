@@ -66,9 +66,9 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d0a3d5e207573f948a9e5376662aa743a2ea13f7c50a554d7af443a73fbfeba"
+checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
 dependencies = [
  "autocfg",
  "num-integer",
@@ -135,9 +135,9 @@ dependencies = [
 
 [[package]]
 name = "simple_asn1"
-version = "0.5.1"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8d597fce66eb0f19dd129b9956e4054cba21aeaf97d4116595027b670fac50"
+checksum = "dc31e6cf34ad4321d3a2b8f934949b429e314519f753a77962f16c664dca8e13"
 dependencies = [
  "chrono",
  "num-bigint",
@@ -150,6 +150,7 @@ name = "simple_x509"
 version = "0.1.1"
 dependencies = [
  "chrono",
+ "num-traits",
  "ring",
  "simple_asn1",
 ]
