@@ -73,6 +73,7 @@ fn x509_rsa_root_test() {
     let organization = "Internet Widgits Pty Ltd";
 
     let x = X509Builder::new(0xf2f9d803d7b7d734)
+        .version(2)
         .issuer_prstr(vec![2, 5, 4, 6], country) /* countryName */
         .issuer_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
         .issuer_utf8(vec![2, 5, 4, 10], organization) /* organizationName */
@@ -91,7 +92,7 @@ fn x509_rsa_root_test() {
 
     let der = match x.x509_enc(|c| rsa_sign_fn(c)) {
         Some(d) => d,
-        None => panic!("x5092der() failed"),
+        None => panic!("x509_enc() failed"),
     };
 
     let err = write_file("tests/data/ca_rsa.der", &der).map_err(|e| e.kind());
@@ -113,6 +114,7 @@ fn x509_ec_root_test() {
     let organization = "Internet Widgits Pty Ltd";
 
     let x = X509Builder::new(0xf2f9d803d7b7d734)
+        .version(2)
         .issuer_prstr(vec![ 2, 5, 4, 6 ], country) /* countryName */
         .issuer_utf8(vec![ 2, 5, 4, 8 ], state) /* stateOrProvinceName */
         .issuer_utf8(vec![ 2, 5, 4, 10 ], organization) /* organizationName */
@@ -131,7 +133,7 @@ fn x509_ec_root_test() {
 
     let der = match x.x509_enc(|c| ec_sign_fn(c)) {
         Some(d) => d,
-        None => panic!("x5092der() failed"),
+        None => panic!("x509_enc() failed"),
     };
 
     let err = write_file("tests/data/ca_ec.der", &der).map_err(|e| e.kind());
@@ -170,7 +172,7 @@ fn x509_extension_raw() {
 
     let der = match x.x509_enc(|c| ec_sign_fn(c)) {
         Some(d) => d,
-        None => panic!("x5092der() failed"),
+        None => panic!("x509_enc() failed"),
     };
 
     let err = write_file("tests/data/ca_extension_raw.der", &der).map_err(|e| e.kind());
