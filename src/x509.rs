@@ -510,7 +510,7 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
     Some(ret)
 }
 
-fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: Vec<u64>) -> Option<PubKey> {
+fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Option<PubKey> {
     let vec = get_asn1_seq(v, idx)?;
     let seq = get_asn1_seq(vec, 0)?;
     let pub_oid = match seq.get(0)? {
@@ -535,10 +535,38 @@ fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: Vec<u64>) -> Option
     };
 
     let pub_key = PubKey::Rsa(RsaPub {
-        sign_oid: sign_oid,
+        sign_oid: sign_oid.to_vec(),
         pub_oid: pub_oid,
         n: n,
         e: e,
+    });
+
+    Some(pub_key)
+}
+
+fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Option<PubKey> {
+    let vec = get_asn1_seq(v, idx)?;
+    let seq = get_asn1_seq(vec, 0)?;
+    let pub_oid = match seq.get(0)? {
+        ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok()?,
+        _ => return None,
+    };
+
+    let curve = match seq.get(1)? {
+        ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok()?,
+        _ => return None,
+    };
+
+    let key = match vec.get(1)? {
+        ASN1Block::BitString(_, _, k) => k,
+        _ => return None,
+    };
+
+    let pub_key = PubKey::Ec(EcPub {
+        sign_oid: sign_oid.to_vec(),
+        pub_oid: pub_oid,
+        key: key.to_vec(),
+        curve: curve,
     });
 
     Some(pub_key)
@@ -563,7 +591,7 @@ fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(i64, i64)> {
 fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
     let mut ret = Vec::new();
 
-    for i in 0..v.len() {
+    for i in (0..v.len()).rev() {
         let seq = get_asn1_seq(v, i)?;
         let oid = match seq.get(0)? {
             ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok()?,
@@ -587,7 +615,10 @@ fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
 }
 
 fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
-    let block = v.get(idx)?;
+    let block = match v.get(idx) {
+        Some(b) => b,
+        _ => return Some(Vec::new()),
+    };
 
     match block {
         ASN1Block::Explicit(_, _, tag, val) =>
@@ -691,7 +722,10 @@ impl X509Deserialize for Vec<u8> {
         idx += 1;
 
         /* Subject Public Key Info */
-        let pub_key = get_rsa_pub_key(body, idx, sign_oid);
+        let mut pub_key = get_rsa_pub_key(body, idx, &sign_oid);
+        if pub_key  == None {
+            pub_key = get_ec_pub_key(body, idx, &sign_oid);
+        }
         if pub_key  == None {
             println!("Failed to get Subject Public Key");
             return None;
@@ -706,9 +740,6 @@ impl X509Deserialize for Vec<u8> {
                 return None;
             },
         };
-        if ext.len() > 0 {
-            idx += 1;
-        }
 
         let x = X509 {
             version: version,
