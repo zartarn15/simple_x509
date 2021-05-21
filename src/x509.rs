@@ -3,6 +3,7 @@ use chrono::{DateTime, TimeZone, Utc};
 use simple_asn1::{ASN1Block, ASN1Class, BigInt, BigUint, OID};
 use num_traits::cast::ToPrimitive;
 use std::ops::Deref;
+use std::convert::TryFrom;
 
 #[derive(Debug, PartialEq)]
 struct OidStr {
@@ -509,10 +510,38 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
     Some(ret)
 }
 
-fn get_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
+fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: Vec<u64>) -> Option<PubKey> {
     let vec = get_asn1_seq(v, idx)?;
-    println!(">>> {:?}", vec);
-    None
+    let seq = get_asn1_seq(vec, 0)?;
+    let pub_oid = match seq.get(0)? {
+        ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok()?,
+        _ => return None,
+    };
+
+    let der = match vec.get(1)? {
+        ASN1Block::BitString(_, _, d) => d,
+        _ => return None,
+    };
+
+    let sk = simple_asn1::from_der(der).ok()?;
+    let key = get_asn1_seq(&sk, 0)?;
+    let n = match key.get(0)? {
+        ASN1Block::Integer(_, bi) => BigInt::to_signed_bytes_be(bi),
+        _ => return None,
+    };
+    let e = match key.get(1)? {
+        ASN1Block::Integer(_, bi) => <u32>::try_from(bi).ok()?,
+        _ => return None,
+    };
+
+    let pub_key = PubKey::Rsa(RsaPub {
+        sign_oid: sign_oid,
+        pub_oid: pub_oid,
+        n: n,
+        e: e,
+    });
+
+    Some(pub_key)
 }
 
 fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(i64, i64)> {
@@ -662,7 +691,7 @@ impl X509Deserialize for Vec<u8> {
         idx += 1;
 
         /* Subject Public Key Info */
-        let pub_key = get_pub_key(body, idx);
+        let pub_key = get_rsa_pub_key(body, idx, sign_oid);
         if pub_key  == None {
             println!("Failed to get Subject Public Key");
             return None;
