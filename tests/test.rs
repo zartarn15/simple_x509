@@ -223,8 +223,20 @@ fn x509_key_usage_extension() {
 }
 
 #[test]
-fn x509_deserialize() {
+fn x509_rsa_deserialize() {
     let der = read_file("tests/data/cert_rsa.der").unwrap_or_else(|_| panic!("File not found"));
     let x = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
-    println!("TEST:\n{:?}", x);
+
+    let der2 = x.x509_enc(|c| rsa_sign_fn(c)).unwrap_or_else(|| panic!("Failed to serialize"));
+    assert_eq!(der, der2);
+}
+
+#[test]
+fn x509_ec_deserialize() {
+    let der = read_file("tests/data/cert_ec.der").unwrap_or_else(|_| panic!("File not found"));
+    let x = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
+
+    let der2 = x.x509_enc(|c| ec_sign_fn(c)).unwrap_or_else(|| panic!("Failed to serialize"));
+    let err = write_file("tests/data/ca_ec_deserialized.der", &der2).map_err(|e| e.kind());
+    assert_eq!(err, Ok(()));
 }
