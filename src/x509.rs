@@ -663,6 +663,13 @@ fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
     }
 }
 
+fn get_signature(v: &Vec<ASN1Block>) -> Option<Vec<u8>> {
+    match v.get(2)? {
+        ASN1Block::BitString(_, _, s) => Some(s.to_vec()),
+        _ => None,
+    }
+}
+
 pub trait X509Deserialize {
     fn x509_dec(&self) -> Option<X509>;
 }
@@ -770,6 +777,15 @@ impl X509Deserialize for Vec<u8> {
             },
         };
 
+        /* Signature */
+        let sign = match get_signature(&x509) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Signature");
+                return None;
+            },
+        };
+
         let x = X509 {
             version: version,
             sn: sn,
@@ -779,7 +795,7 @@ impl X509Deserialize for Vec<u8> {
             not_after: not_after,
             pub_key: pub_key,
             ext: ext,
-            sign: Vec::new(),
+            sign: sign,
         };
 
         Some(x)
