@@ -90,7 +90,12 @@ fn x509_rsa_root_test() {
         )
         .build();
 
-    let der = match x.x509_enc(|c| rsa_sign_fn(c)) {
+    let cert = match x.sign(|c| rsa_sign_fn(c)) {
+        Some(c) => c,
+        None => panic!("sign() failed"),
+    };
+
+    let der = match cert.x509_enc() {
         Some(d) => d,
         None => panic!("x509_enc() failed"),
     };
@@ -131,7 +136,12 @@ fn x509_ec_root_test() {
         )
         .build();
 
-    let der = match x.x509_enc(|c| ec_sign_fn(c)) {
+    let cert = match x.sign(|c| ec_sign_fn(c)) {
+        Some(c) => c,
+        None => panic!("sign() failed"),
+    };
+
+    let der = match cert.x509_enc() {
         Some(d) => d,
         None => panic!("x509_enc() failed"),
     };
@@ -170,7 +180,12 @@ fn x509_extension_raw() {
         )
         .build();
 
-    let der = match x.x509_enc(|c| ec_sign_fn(c)) {
+    let cert = match x.sign(|c| ec_sign_fn(c)) {
+        Some(c) => c,
+        None => panic!("sign() failed"),
+    };
+
+    let der = match cert.x509_enc() {
         Some(d) => d,
         None => panic!("x509_enc() failed"),
     };
@@ -213,7 +228,12 @@ fn x509_key_usage_extension() {
         .ext(key_usage)
         .build();
 
-    let der = match x.x509_enc(|c| ec_sign_fn(c)) {
+    let cert = match x.sign(|c| ec_sign_fn(c)) {
+        Some(c) => c,
+        None => panic!("build() failed"),
+    };
+
+    let der = match cert.x509_enc() {
         Some(d) => d,
         None => panic!("x.x509_enc() failed"),
     };
@@ -227,7 +247,7 @@ fn x509_rsa_deserialize() {
     let der = read_file("tests/data/cert_rsa.der").unwrap_or_else(|_| panic!("File not found"));
     let x = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
 
-    let der2 = x.x509_enc(|c| rsa_sign_fn(c)).unwrap_or_else(|| panic!("Failed to serialize"));
+    let der2 = x.x509_enc().unwrap_or_else(|| panic!("Failed to serialize"));
     assert_eq!(der, der2);
 }
 
@@ -236,7 +256,6 @@ fn x509_ec_deserialize() {
     let der = read_file("tests/data/cert_ec.der").unwrap_or_else(|_| panic!("File not found"));
     let x = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
 
-    let der2 = x.x509_enc(|c| ec_sign_fn(c)).unwrap_or_else(|| panic!("Failed to serialize"));
-    let err = write_file("tests/data/ca_ec_deserialized.der", &der2).map_err(|e| e.kind());
-    assert_eq!(err, Ok(()));
+    let der2 = x.x509_enc().unwrap_or_else(|| panic!("Failed to serialize"));
+    assert_eq!(der, der2);
 }

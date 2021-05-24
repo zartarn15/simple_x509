@@ -49,6 +49,7 @@ pub struct X509 {
     not_after: i64,
     pub_key: Option<PubKey>,
     ext: Vec<X509Ext>,
+    sign: Vec<u8>,
 }
 
 fn serialize(a: &ASN1Block) -> Option<Vec<u8>> {
@@ -90,7 +91,7 @@ fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
     seq
 }
 
-fn x509_name(name: Vec<X509Name>) -> Vec<ASN1Block> {
+fn x509_name(name: &Vec<X509Name>) -> Vec<ASN1Block> {
     let mut n = Vec::new();
 
     for i in 0..name.len() {
@@ -179,95 +180,100 @@ fn ec_pub(ec: &EcPub) -> Vec<ASN1Block> {
     ret
 }
 
+fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
+    let mut body = Vec::new();
+
+    /* Version */
+    if let Some(v) = x.version {
+        body.push(version_explicit(v));
+    }
+
+    /* Serial Number */
+    body.push(ASN1Block::Integer(0, BigInt::from(x.sn)));
+
+    /* Signature Algorithm */
+    match x.pub_key {
+        Some(PubKey::Rsa(ref rsa)) => {
+            body.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
+        }
+        Some(PubKey::Ec(ref ec)) => {
+            body.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid)))
+        }
+        None => {
+            println!("Failed: no public key");
+            return None;
+        }
+    }
+
+    /* Issuer name */
+    if x.issuer.len() > 0 {
+        body.push(ASN1Block::Sequence(0, x509_name(&x.issuer)));
+    } else {
+        println!("Failed: no issuer name");
+        return None;
+    }
+
+    /* Validity time */
+    let mut validity = Vec::new();
+    validity.push(ASN1Block::UTCTime(0, Utc.timestamp(x.not_before, 0)));
+    validity.push(ASN1Block::UTCTime(0, Utc.timestamp(x.not_after, 0)));
+    body.push(ASN1Block::Sequence(0, validity));
+
+    /* Subject name */
+    if x.subject.len() > 0 {
+        body.push(ASN1Block::Sequence(0, x509_name(&x.subject)));
+    } else {
+        println!("Failed: no subject name");
+        return None;
+    }
+
+    /* Subject Public Key Info */
+    match x.pub_key {
+        Some(PubKey::Rsa(ref rsa)) => {
+            let rsa_vec = match rsa_pub(rsa) {
+                Some(r) => r,
+                None => return None,
+            };
+            body.push(ASN1Block::Sequence(0, rsa_vec));
+        }
+        Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, ec_pub(ec))),
+        None => return None,
+    }
+
+    /* Extensions */
+    let mut ext = Vec::new();
+    for i in 0..x.ext.len() {
+        ext.push(ASN1Block::Sequence(
+            0,
+            x509_ext(&x.ext[x.ext.len() - i - 1]),
+        ));
+    }
+
+    if x.ext.len() > 0 {
+        body.push(extension_explicit(ext));
+    }
+
+    Some(body)
+}
 
 impl X509 {
     pub fn builder() -> X509Builder {
         X509Builder::default()
     }
 
-    pub fn x509_enc<F>(self, sign_cb: F) -> Option<Vec<u8>>
+    pub fn sign<F>(self, sign_cb: F) -> Option<X509>
     where
         F: Fn(Vec<u8>) -> Option<Vec<u8>>,
     {
-        let mut body = Vec::new();
-
-        /* Version */
-        if let Some(v) = self.version {
-            body.push(version_explicit(v));
-        }
-
-        /* Serial Number */
-        body.push(ASN1Block::Integer(0, BigInt::from(self.sn)));
-
-        /* Signature Algorithm */
-        match self.pub_key {
-            Some(PubKey::Rsa(ref rsa)) => {
-                body.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
-            }
-            Some(PubKey::Ec(ref ec)) => {
-                body.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid)))
-            }
-            None => {
-                println!("Failed: no public key");
-                return None;
-            }
-        }
-
-        /* Issuer name */
-        if self.issuer.len() > 0 {
-            body.push(ASN1Block::Sequence(0, x509_name(self.issuer)));
-        } else {
-            println!("Failed: no issuer name");
-            return None;
-        }
-
-        /* Validity time */
-        let mut validity = Vec::new();
-        validity.push(ASN1Block::UTCTime(0, Utc.timestamp(self.not_before, 0)));
-        validity.push(ASN1Block::UTCTime(0, Utc.timestamp(self.not_after, 0)));
-        body.push(ASN1Block::Sequence(0, validity));
-
-        /* Subject name */
-        if self.subject.len() > 0 {
-            body.push(ASN1Block::Sequence(0, x509_name(self.subject)));
-        } else {
-            println!("Failed: no subject name");
-            return None;
-        }
-
-        /* Subject Public Key Info */
-        match self.pub_key {
-            Some(PubKey::Rsa(ref rsa)) => {
-                let rsa_vec = match rsa_pub(rsa) {
-                    Some(r) => r,
-                    None => return None,
-                };
-                body.push(ASN1Block::Sequence(0, rsa_vec));
-            }
-            Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, ec_pub(ec))),
-            None => return None,
-        }
-
-        /* Extensions */
-        let mut ext = Vec::new();
-        for i in 0..self.ext.len() {
-            ext.push(ASN1Block::Sequence(
-                0,
-                x509_ext(&self.ext[self.ext.len() - i - 1]),
-            ));
-        }
-        if self.ext.len() > 0 {
-            body.push(extension_explicit(ext));
-        }
-
-        /* Get signature  */
-        let data = match serialize(&ASN1Block::Sequence(0, body.clone())) {
+        let body = x509_body(&self)?;
+        let data = match serialize(&ASN1Block::Sequence(0, body)) {
             Some(d) => d,
             None => {
                 println!("Failed: serialize()");
                 return None;
             }
         };
+
         let sign = match sign_cb(data) {
             Some(s) => s,
             None => {
@@ -276,8 +282,25 @@ impl X509 {
             }
         };
 
-        /* Build cert */
+        let x = X509 {
+            version: self.version,
+            sn: self.sn,
+            issuer: self.issuer,
+            subject: self.subject,
+            not_before: self.not_before,
+            not_after: self.not_after,
+            pub_key: self.pub_key,
+            ext: self.ext,
+            sign: sign,
+        };
+
+        Some(x)
+    }
+
+    pub fn x509_enc(self) -> Option<Vec<u8>> {
         let mut x509 = Vec::new();
+        let body = x509_body(&self)?;
+
         x509.push(ASN1Block::Sequence(0, body));
         match self.pub_key {
             Some(PubKey::Rsa(ref rsa)) => {
@@ -289,12 +312,17 @@ impl X509 {
             None => return None,
         }
 
-        /* Signature */
-        x509.push(ASN1Block::BitString(0, sign.len() * 8, sign));
+        if self.sign.len() == 0 {
+            println!("Failed: no signature");
+            return None;
+        }
+
+        x509.push(ASN1Block::BitString(0, self.sign.len() * 8, self.sign));
 
         let mut x509_full = Vec::new();
         x509_full.push(ASN1Block::Sequence(0, x509));
-        serialize(x509_full.first().unwrap())
+
+        serialize(x509_full.first()?)
     }
 }
 
@@ -434,6 +462,7 @@ impl X509Builder {
             not_after: self.not_after,
             pub_key: self.pub_key,
             ext: self.ext,
+            sign: Vec::new(),
         }
     }
 }
@@ -750,6 +779,7 @@ impl X509Deserialize for Vec<u8> {
             not_after: not_after,
             pub_key: pub_key,
             ext: ext,
+            sign: Vec::new(),
         };
 
         Some(x)
