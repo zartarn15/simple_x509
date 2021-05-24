@@ -1,9 +1,9 @@
 use crate::X509Ext;
 use chrono::{DateTime, TimeZone, Utc};
-use simple_asn1::{ASN1Block, ASN1Class, BigInt, BigUint, OID};
 use num_traits::cast::ToPrimitive;
-use std::ops::Deref;
+use simple_asn1::{ASN1Block, ASN1Class, BigInt, BigUint, OID};
 use std::convert::TryFrom;
+use std::ops::Deref;
 
 #[derive(Debug, PartialEq)]
 struct OidStr {
@@ -193,12 +193,8 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
 
     /* Signature Algorithm */
     match x.pub_key {
-        Some(PubKey::Rsa(ref rsa)) => {
-            body.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
-        }
-        Some(PubKey::Ec(ref ec)) => {
-            body.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid)))
-        }
+        Some(PubKey::Rsa(ref rsa)) => body.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid))),
+        Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid))),
         None => {
             println!("Failed: no public key");
             return None;
@@ -306,9 +302,7 @@ impl X509 {
             Some(PubKey::Rsa(ref rsa)) => {
                 x509.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
             }
-            Some(PubKey::Ec(ref ec)) => {
-                x509.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid)))
-            }
+            Some(PubKey::Ec(ref ec)) => x509.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid))),
             None => return None,
         }
 
@@ -494,7 +488,7 @@ fn get_asn1_uint64(v: &Vec<ASN1Block>, idx: usize) -> Option<u64> {
 fn get_version(v: &Vec<ASN1Block>) -> Option<u64> {
     let block = v.get(0)?;
     match block {
-        ASN1Block::Explicit(_, _, tag, val) =>
+        ASN1Block::Explicit(_, _, tag, val) => {
             if tag.to_u64() == Some(0) {
                 match Deref::deref(val) {
                     ASN1Block::Integer(_, b) => b.to_u64(),
@@ -503,6 +497,7 @@ fn get_version(v: &Vec<ASN1Block>) -> Option<u64> {
             } else {
                 None
             }
+        }
         _ => None,
     }
 }
@@ -528,8 +523,14 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
         };
 
         let name = match seq.get(1)? {
-            ASN1Block::UTF8String(_, d) => X509Name::Utf8(OidStr { oid: oid, data: d.to_string()}),
-            ASN1Block::PrintableString(_, d) => X509Name::PrStr(OidStr { oid: oid, data: d.to_string()}),
+            ASN1Block::UTF8String(_, d) => X509Name::Utf8(OidStr {
+                oid: oid,
+                data: d.to_string(),
+            }),
+            ASN1Block::PrintableString(_, d) => X509Name::PrStr(OidStr {
+                oid: oid,
+                data: d.to_string(),
+            }),
             _ => return None,
         };
 
@@ -637,7 +638,11 @@ fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
             _ => return None,
         };
 
-        ret.push(X509Ext {oid: oid, critical: *critical, data: data.to_vec()});
+        ret.push(X509Ext {
+            oid: oid,
+            critical: *critical,
+            data: data.to_vec(),
+        });
     }
 
     Some(ret)
@@ -650,7 +655,7 @@ fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
     };
 
     match block {
-        ASN1Block::Explicit(_, _, tag, val) =>
+        ASN1Block::Explicit(_, _, tag, val) => {
             if tag.to_u64() == Some(3) {
                 match Deref::deref(val) {
                     ASN1Block::Sequence(_, e) => get_ext_raw(e),
@@ -659,6 +664,7 @@ fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
             } else {
                 None
             }
+        }
         _ => None,
     }
 }
@@ -681,7 +687,7 @@ impl X509Deserialize for Vec<u8> {
             Err(_) => {
                 println!("Failed: simple_asn1::from_der()");
                 return None;
-            },
+            }
         };
 
         let x509 = match get_asn1_seq(&x509_full, 0) {
@@ -689,7 +695,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get x509");
                 return None;
-            },
+            }
         };
 
         let body = match get_asn1_seq(&x509, 0) {
@@ -697,7 +703,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get body");
                 return None;
-            },
+            }
         };
 
         /* Version */
@@ -713,7 +719,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get SerialNumber");
                 return None;
-            },
+            }
         };
         idx += 1;
 
@@ -723,7 +729,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get Signature Algorithm OID");
                 return None;
-            },
+            }
         };
         idx += 1;
 
@@ -733,7 +739,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get Issuer");
                 return None;
-            },
+            }
         };
         idx += 1;
 
@@ -743,7 +749,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get Validity time");
                 return None;
-            },
+            }
         };
         idx += 1;
 
@@ -753,16 +759,16 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get Subject");
                 return None;
-            },
+            }
         };
         idx += 1;
 
         /* Subject Public Key Info */
         let mut pub_key = get_rsa_pub_key(body, idx, &sign_oid);
-        if pub_key  == None {
+        if pub_key == None {
             pub_key = get_ec_pub_key(body, idx, &sign_oid);
         }
-        if pub_key  == None {
+        if pub_key == None {
             println!("Failed to get Subject Public Key");
             return None;
         }
@@ -774,7 +780,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get Extensions");
                 return None;
-            },
+            }
         };
 
         /* Signature */
@@ -783,7 +789,7 @@ impl X509Deserialize for Vec<u8> {
             None => {
                 println!("Failed to get Signature");
                 return None;
-            },
+            }
         };
 
         let x = X509 {
