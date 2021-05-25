@@ -72,7 +72,7 @@ fn x509_rsa_root_test() {
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
 
-    let x = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .version(2)
         .issuer_prstr(vec![2, 5, 4, 6], country) /* countryName */
         .issuer_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
@@ -118,7 +118,7 @@ fn x509_ec_root_test() {
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
 
-    let x = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .version(2)
         .issuer_prstr(vec![ 2, 5, 4, 6 ], country) /* countryName */
         .issuer_utf8(vec![ 2, 5, 4, 8 ], state) /* stateOrProvinceName */
@@ -162,7 +162,7 @@ fn x509_extension_raw() {
 
     let common_name = "Name name";
 
-    let x = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
         .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
         .not_before(1_619_014_703)
@@ -214,7 +214,7 @@ fn x509_key_usage_extension() {
         ])
         .build();
 
-    let x = X509Builder::new(0xf2f9d803d7b7d734)
+    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
         .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
         .not_before(1_619_014_703)

@@ -42,7 +42,7 @@ pub enum PubKey {
 #[derive(Debug, PartialEq)]
 pub struct X509 {
     pub version: Option<u64>,
-    pub sn: u64,
+    pub sn: Vec<u8>,
     pub issuer: Vec<X509Name>,
     pub subject: Vec<X509Name>,
     pub not_before: i64,
@@ -189,7 +189,7 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
     }
 
     /* Serial Number */
-    body.push(ASN1Block::Integer(0, BigInt::from(x.sn)));
+    body.push(ASN1Block::Integer(0, BigInt::from_signed_bytes_be(&x.sn)));
 
     /* Signature Algorithm */
     match x.pub_key {
@@ -323,7 +323,7 @@ impl X509 {
 #[derive(Default)]
 pub struct X509Builder {
     version: Option<u64>,
-    sn: u64,
+    sn: Vec<u8>,
     issuer: Vec<X509Name>,
     subject: Vec<X509Name>,
     not_before: i64,
@@ -333,7 +333,7 @@ pub struct X509Builder {
 }
 
 impl X509Builder {
-    pub fn new(sn: u64) -> X509Builder {
+    pub fn new(sn: Vec<u8>) -> X509Builder {
         X509Builder {
             version: None,
             sn: sn,
@@ -477,10 +477,10 @@ fn get_asn1_set(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
     }
 }
 
-fn get_asn1_uint64(v: &Vec<ASN1Block>, idx: usize) -> Option<u64> {
+fn get_serial_number(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<u8>> {
     let block = v.get(idx)?;
     match block {
-        ASN1Block::Integer(_, b) => b.to_u64(),
+        ASN1Block::Integer(_, b) => Some(BigInt::to_signed_bytes_be(b)),
         _ => None,
     }
 }
@@ -719,7 +719,7 @@ impl X509Deserialize for Vec<u8> {
         };
 
         /* Serial Number */
-        let sn = match get_asn1_uint64(body, idx) {
+        let sn = match get_serial_number(body, idx) {
             Some(a) => a,
             None => {
                 println!("Failed to get SerialNumber");
