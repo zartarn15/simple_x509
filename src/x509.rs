@@ -629,18 +629,23 @@ fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
         };
 
         let critical = match seq.get(1)? {
-            ASN1Block::Boolean(_, c) => c,
-            _ => return None,
+            ASN1Block::Boolean(_, c) => *c,
+            _ => false,
         };
 
-        let data = match seq.get(2)? {
+        let idx = match critical {
+            false => 1,
+            true => 2,
+        };
+
+        let data = match seq.get(idx)? {
             ASN1Block::OctetString(_, d) => d,
             _ => return None,
         };
 
         ret.push(X509Ext {
             oid: oid,
-            critical: *critical,
+            critical: critical,
             data: data.to_vec(),
         });
     }
