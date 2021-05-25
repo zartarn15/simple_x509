@@ -1,10 +1,16 @@
+use regex::Regex;
 use ring::rand;
 use ring::signature::{self};
+use rustc_serialize::base64::FromBase64;
 use simple_x509::*;
+use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::io::Read;
+use std::str;
+
+const REGEX: &'static str = r"(-----BEGIN .*-----\n)((?:(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)*\n)+)(-----END .*-----)";
 
 fn read_file(f: &str) -> std::io::Result<Vec<u8>> {
     let mut fd = File::open(f)?;
@@ -43,6 +49,13 @@ fn ec_sign_fn(data: Vec<u8>) -> Option<Vec<u8>> {
     let sig = key.sign(&rng, &data).ok()?;
 
     Some(sig.as_ref().to_vec())
+}
+
+pub fn pem_to_der(f: &str) -> Option<Vec<u8>> {
+    let r = Regex::new(REGEX).ok()?;
+    let v = r.replace(f, "$2");
+    let b = v.replace("\n", "");
+    b.from_base64().ok()
 }
 
 #[test]
@@ -266,4 +279,51 @@ fn x509_ec_deserialize() {
         .x509_enc()
         .unwrap_or_else(|| panic!("Failed to serialize"));
     assert_eq!(der, der2);
+}
+
+#[test]
+fn x509_decoding_encoding() {
+    let ret = fs::read_dir("/etc/ssl/certs/");
+    let paths = match ret {
+        Ok(p) => p,
+        Err(_) => return, /* skip test */
+    };
+
+    let mut counter = 0;
+
+    for path in paths {
+        let p = match path {
+            Ok(pt) => pt.path().display().to_string(),
+            Err(_) => continue,
+        };
+        let pem = match read_file(&p) {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+        let st = match str::from_utf8(&pem) {
+            Ok(s) => s,
+            Err(_) => continue,
+        };
+        let der = match pem_to_der(st) {
+            Some(d) => d,
+            None => continue,
+        };
+
+        let x = match der.x509_dec() {
+            Some(x) => x,
+            None => {
+                println!("Failed to deserialize: {}", p);
+                continue;
+            }
+        };
+
+        let der2 = x
+            .x509_enc()
+            .unwrap_or_else(|| panic!("Failed to serialize: {}", p));
+
+        assert_eq!(der, der2);
+        counter += 1;
+    }
+
+    println!("{} certificates are tested", counter);
 }

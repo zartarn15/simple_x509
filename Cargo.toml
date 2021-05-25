@@ -16,3 +16,5 @@ num-traits = { default-features = false, version = "0.2" }
 
 [dev-dependencies]
 ring = "0.16.20"
+regex = "1.5.4"
+rustc-serialize = "0.3.24"
