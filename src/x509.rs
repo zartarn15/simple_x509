@@ -6,49 +6,49 @@ use std::convert::TryFrom;
 use std::ops::Deref;
 
 #[derive(Debug, PartialEq)]
-struct OidStr {
-    oid: Vec<u64>,
-    data: String,
+pub struct OidStr {
+    pub oid: Vec<u64>,
+    pub data: String,
 }
 
 #[derive(Debug, PartialEq)]
-enum X509Name {
+pub enum X509Name {
     Utf8(OidStr),
     PrStr(OidStr),
 }
 
 #[derive(Debug, PartialEq)]
-struct RsaPub {
-    sign_oid: Vec<u64>,
-    pub_oid: Vec<u64>,
-    n: Vec<u8>,
-    e: u32,
+pub struct RsaPub {
+    pub sign_oid: Vec<u64>,
+    pub pub_oid: Vec<u64>,
+    pub n: Vec<u8>,
+    pub e: u32,
 }
 
 #[derive(Debug, PartialEq)]
-struct EcPub {
-    sign_oid: Vec<u64>,
-    pub_oid: Vec<u64>,
-    key: Vec<u8>,
-    curve: Vec<u64>,
+pub struct EcPub {
+    pub sign_oid: Vec<u64>,
+    pub pub_oid: Vec<u64>,
+    pub key: Vec<u8>,
+    pub curve: Vec<u64>,
 }
 
 #[derive(Debug, PartialEq)]
-enum PubKey {
+pub enum PubKey {
     Rsa(RsaPub),
     Ec(EcPub),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct X509 {
-    version: Option<u64>,
-    sn: u64,
-    issuer: Vec<X509Name>,
-    subject: Vec<X509Name>,
-    not_before: i64,
-    not_after: i64,
-    pub_key: Option<PubKey>,
-    ext: Vec<X509Ext>,
+    pub version: Option<u64>,
+    pub sn: u64,
+    pub issuer: Vec<X509Name>,
+    pub subject: Vec<X509Name>,
+    pub not_before: i64,
+    pub not_after: i64,
+    pub pub_key: Option<PubKey>,
+    pub ext: Vec<X509Ext>,
     sign: Vec<u8>,
 }
 
