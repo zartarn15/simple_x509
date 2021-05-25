@@ -77,7 +77,7 @@ fn oid_new(id: &Vec<u64>) -> OID {
     OID::new(res)
 }
 
-fn seq_oid_utf8(v: &OidStr) -> Vec<ASN1Block> {
+fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
     let mut vec = Vec::new();
     vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
     vec.push(ASN1Block::PrintableString(1, String::from(&v.data)));
@@ -88,7 +88,7 @@ fn seq_oid_utf8(v: &OidStr) -> Vec<ASN1Block> {
     seq
 }
 
-fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
+fn seq_oid_utf8(v: &OidStr) -> Vec<ASN1Block> {
     let mut vec = Vec::new();
     vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
     vec.push(ASN1Block::UTF8String(1, String::from(&v.data)));
@@ -126,8 +126,8 @@ fn x509_name(name: &Vec<X509Name>) -> Vec<ASN1Block> {
 
     for i in 0..name.len() {
         match &name[i] {
-            X509Name::Utf8(s) => n.push(ASN1Block::Set(0, seq_oid_str(s))),
-            X509Name::PrStr(s) => n.push(ASN1Block::Set(0, seq_oid_utf8(s))),
+            X509Name::Utf8(s) => n.push(ASN1Block::Set(0, seq_oid_utf8(s))),
+            X509Name::PrStr(s) => n.push(ASN1Block::Set(0, seq_oid_str(s))),
             X509Name::TtxStr(s) => n.push(ASN1Block::Set(0, seq_oid_ttx(s))),
             X509Name::Ia5Str(s) => n.push(ASN1Block::Set(0, seq_oid_ia5(s))),
         }
