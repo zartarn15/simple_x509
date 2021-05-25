@@ -15,6 +15,14 @@ pub struct OidStr {
 pub enum X509Name {
     Utf8(OidStr),
     PrStr(OidStr),
+    TtxStr(OidStr),
+    Ia5Str(OidStr),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum X509Time {
+    Utc(i64),
+    Gen(i64),
 }
 
 #[derive(Debug, PartialEq)]
@@ -45,8 +53,8 @@ pub struct X509 {
     pub sn: Vec<u8>,
     pub issuer: Vec<X509Name>,
     pub subject: Vec<X509Name>,
-    pub not_before: i64,
-    pub not_after: i64,
+    pub not_before: Option<X509Time>,
+    pub not_after: Option<X509Time>,
     pub pub_key: Option<PubKey>,
     pub ext: Vec<X509Ext>,
     sign: Vec<u8>,
@@ -91,6 +99,28 @@ fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
     seq
 }
 
+fn seq_oid_ttx(v: &OidStr) -> Vec<ASN1Block> {
+    let mut vec = Vec::new();
+    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
+    vec.push(ASN1Block::TeletexString(1, String::from(&v.data)));
+
+    let mut seq = Vec::new();
+    seq.push(ASN1Block::Sequence(0, vec));
+
+    seq
+}
+
+fn seq_oid_ia5(v: &OidStr) -> Vec<ASN1Block> {
+    let mut vec = Vec::new();
+    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
+    vec.push(ASN1Block::IA5String(1, String::from(&v.data)));
+
+    let mut seq = Vec::new();
+    seq.push(ASN1Block::Sequence(0, vec));
+
+    seq
+}
+
 fn x509_name(name: &Vec<X509Name>) -> Vec<ASN1Block> {
     let mut n = Vec::new();
 
@@ -98,10 +128,28 @@ fn x509_name(name: &Vec<X509Name>) -> Vec<ASN1Block> {
         match &name[i] {
             X509Name::Utf8(s) => n.push(ASN1Block::Set(0, seq_oid_str(s))),
             X509Name::PrStr(s) => n.push(ASN1Block::Set(0, seq_oid_utf8(s))),
+            X509Name::TtxStr(s) => n.push(ASN1Block::Set(0, seq_oid_ttx(s))),
+            X509Name::Ia5Str(s) => n.push(ASN1Block::Set(0, seq_oid_ia5(s))),
         }
     }
 
     n
+}
+
+fn validity_time(not_before: &X509Time, not_after: &X509Time) -> Vec<ASN1Block> {
+    let mut v = Vec::new();
+
+    match not_before {
+        X509Time::Utc(nb) => v.push(ASN1Block::UTCTime(0, Utc.timestamp(*nb, 0))),
+        X509Time::Gen(nb) => v.push(ASN1Block::GeneralizedTime(0, Utc.timestamp(*nb, 0))),
+    }
+
+    match not_after {
+        X509Time::Utc(na) => v.push(ASN1Block::UTCTime(0, Utc.timestamp(*na, 0))),
+        X509Time::Gen(na) => v.push(ASN1Block::GeneralizedTime(0, Utc.timestamp(*na, 0))),
+    }
+
+    v
 }
 
 fn version_explicit(val: u64) -> ASN1Block {
@@ -210,9 +258,15 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
     }
 
     /* Validity time */
-    let mut validity = Vec::new();
-    validity.push(ASN1Block::UTCTime(0, Utc.timestamp(x.not_before, 0)));
-    validity.push(ASN1Block::UTCTime(0, Utc.timestamp(x.not_after, 0)));
+    if x.not_before == None || x.not_after == None {
+        println!("Failed: no validity time");
+        return None;
+    }
+
+    let validity = validity_time(
+        &x.not_before.as_ref().unwrap(),
+        &x.not_after.as_ref().unwrap(),
+    );
     body.push(ASN1Block::Sequence(0, validity));
 
     /* Subject name */
@@ -326,8 +380,8 @@ pub struct X509Builder {
     sn: Vec<u8>,
     issuer: Vec<X509Name>,
     subject: Vec<X509Name>,
-    not_before: i64,
-    not_after: i64,
+    not_before: Option<X509Time>,
+    not_after: Option<X509Time>,
     pub_key: Option<PubKey>,
     ext: Vec<X509Ext>,
 }
@@ -339,8 +393,8 @@ impl X509Builder {
             sn: sn,
             issuer: Vec::new(),
             subject: Vec::new(),
-            not_before: 0,
-            not_after: 0,
+            not_before: None,
+            not_after: None,
             pub_key: None,
             ext: Vec::new(),
         }
@@ -369,6 +423,24 @@ impl X509Builder {
         self
     }
 
+    pub fn issuer_ttxstr(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
+        let name = X509Name::TtxStr(OidStr {
+            oid: oid,
+            data: data.to_string(),
+        });
+        self.issuer.push(name);
+        self
+    }
+
+    pub fn issuer_ia5str(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
+        let name = X509Name::Ia5Str(OidStr {
+            oid: oid,
+            data: data.to_string(),
+        });
+        self.issuer.push(name);
+        self
+    }
+
     pub fn subject_utf8(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::Utf8(OidStr {
             oid: oid,
@@ -387,13 +459,41 @@ impl X509Builder {
         self
     }
 
-    pub fn not_before(mut self, not_before: i64) -> X509Builder {
-        self.not_before = not_before;
+    pub fn subject_ttxstr(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
+        let name = X509Name::TtxStr(OidStr {
+            oid: oid,
+            data: data.to_string(),
+        });
+        self.subject.push(name);
         self
     }
 
-    pub fn not_after(mut self, not_after: i64) -> X509Builder {
-        self.not_after = not_after;
+    pub fn subject_ia5str(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
+        let name = X509Name::Ia5Str(OidStr {
+            oid: oid,
+            data: data.to_string(),
+        });
+        self.subject.push(name);
+        self
+    }
+
+    pub fn not_before_utc(mut self, not_before: i64) -> X509Builder {
+        self.not_before = Some(X509Time::Utc(not_before));
+        self
+    }
+
+    pub fn not_before_gen(mut self, not_before: i64) -> X509Builder {
+        self.not_before = Some(X509Time::Gen(not_before));
+        self
+    }
+
+    pub fn not_after_utc(mut self, not_after: i64) -> X509Builder {
+        self.not_after = Some(X509Time::Utc(not_after));
+        self
+    }
+
+    pub fn not_after_gen(mut self, not_after: i64) -> X509Builder {
+        self.not_after = Some(X509Time::Gen(not_after));
         self
     }
 
@@ -531,6 +631,14 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
                 oid: oid,
                 data: d.to_string(),
             }),
+            ASN1Block::TeletexString(_, d) => X509Name::TtxStr(OidStr {
+                oid: oid,
+                data: d.to_string(),
+            }),
+            ASN1Block::IA5String(_, d) => X509Name::Ia5Str(OidStr {
+                oid: oid,
+                data: d.to_string(),
+            }),
             _ => return None,
         };
 
@@ -602,16 +710,18 @@ fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Option
     Some(pub_key)
 }
 
-fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(i64, i64)> {
+fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(X509Time, X509Time)> {
     let vec = get_asn1_seq(v, idx)?;
 
     let not_before = match vec.get(0)? {
-        ASN1Block::UTCTime(_, t) => DateTime::<Utc>::timestamp(t),
+        ASN1Block::UTCTime(_, t) => X509Time::Utc(DateTime::<Utc>::timestamp(t)),
+        ASN1Block::GeneralizedTime(_, t) => X509Time::Gen(DateTime::<Utc>::timestamp(t)),
         _ => return None,
     };
 
     let not_after = match vec.get(1)? {
-        ASN1Block::UTCTime(_, t) => DateTime::<Utc>::timestamp(t),
+        ASN1Block::UTCTime(_, t) => X509Time::Utc(DateTime::<Utc>::timestamp(t)),
+        ASN1Block::GeneralizedTime(_, t) => X509Time::Gen(DateTime::<Utc>::timestamp(t)),
         _ => return None,
     };
 
@@ -802,8 +912,8 @@ impl X509Deserialize for Vec<u8> {
             sn: sn,
             issuer: issuer,
             subject: subject,
-            not_before: not_before,
-            not_after: not_after,
+            not_before: Some(not_before),
+            not_after: Some(not_after),
             pub_key: pub_key,
             ext: ext,
             sign: sign,

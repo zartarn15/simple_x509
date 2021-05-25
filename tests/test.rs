@@ -80,8 +80,8 @@ fn x509_rsa_root_test() {
         .subject_prstr(vec![2, 5, 4, 6], country) /* countryName */
         .subject_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
         .subject_utf8(vec![2, 5, 4, 10], organization) /* organizationName */
-        .not_before(1_619_014_703)
-        .not_after(1_650_550_703)
+        .not_before_utc(1_619_014_703)
+        .not_after_utc(1_650_550_703)
         .pub_key_rsa(
             vec![1, 2, 840, 113549, 1, 1, 11], /* sha256WithRSAEncryption (PKCS #1) */
             vec![1, 2, 840, 113549, 1, 1, 1],  /* rsaEncryption (PKCS #1) */
@@ -126,8 +126,8 @@ fn x509_ec_root_test() {
         .subject_prstr(vec![ 2, 5, 4, 6 ], country) /* countryName */
         .subject_utf8(vec![ 2, 5, 4, 8 ], state) /* stateOrProvinceName */
         .subject_utf8(vec![ 2, 5, 4, 10 ], organization) /* organizationName */
-        .not_before(1_619_014_703)
-        .not_after(1_650_550_703)
+        .not_before_utc(1_619_014_703)
+        .not_after_utc(1_650_550_703)
         .pub_key_ec(
             vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
             vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
@@ -165,8 +165,8 @@ fn x509_extension_raw() {
     let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
         .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* organizationName */
-        .not_before(1_619_014_703)
-        .not_after(1_650_550_703)
+        .not_before_utc(1_619_014_703)
+        .not_after_utc(1_650_550_703)
         .pub_key_ec(
             vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
             vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
@@ -217,8 +217,8 @@ fn x509_key_usage_extension() {
     let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .issuer_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
         .subject_utf8(vec![ 2, 5, 4, 3 ], common_name) /* commonName */
-        .not_before(1_619_014_703)
-        .not_after(1_650_550_703)
+        .not_before_utc(1_619_014_703)
+        .not_after_utc(1_650_550_703)
         .pub_key_ec(
             vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
             vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
