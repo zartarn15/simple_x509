@@ -96,7 +96,7 @@ fn x509_rsa_root_test() {
         .not_before_utc(1_619_014_703)
         .not_after_utc(1_650_550_703)
         .pub_key_rsa(
-            vec![1, 2, 840, 113549, 1, 1, 1],  /* rsaEncryption (PKCS #1) */
+            vec![1, 2, 840, 113549, 1, 1, 1], /* rsaEncryption (PKCS #1) */
             pub_rsa_n,
             65537,
         )
@@ -122,7 +122,7 @@ fn x509_rsa_pub_key_test() {
     let country = "AU";
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
-    let pub_key = read_file("tests/data/rsa_pub.der").unwrap_or_else(|_| panic!("File not found")); 
+    let pub_key = read_file("tests/data/rsa_pub.der").unwrap_or_else(|_| panic!("File not found"));
 
     let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .version(2)
@@ -151,8 +151,14 @@ fn x509_rsa_pub_key_test() {
     let err = write_file("tests/data/ca_rsa_pd.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
 
-    let x2 = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
-    let pub_key2 = x2.pub_key().unwrap_or_else(|| panic!("Failed to get pub_key"));
+    let x2 = der
+        .x509_dec()
+        .unwrap_or_else(|| panic!("Failed to deserialize"));
+
+    let pub_key2 = x2
+        .pub_key()
+        .unwrap_or_else(|| panic!("Failed to get pub_key"));
+
     assert_eq!(pub_key, pub_key2);
 }
 

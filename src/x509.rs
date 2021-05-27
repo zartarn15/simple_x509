@@ -736,7 +736,7 @@ fn get_pub_der(der: &Vec<u8>) -> Option<PubKey> {
         Err(_) => {
             println!("Failed to deserialize Public Key");
             return None;
-        },
+        }
     };
 
     get_pub_key(&asn, 0)
