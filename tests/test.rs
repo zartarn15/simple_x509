@@ -118,7 +118,7 @@ fn x509_rsa_root_test() {
 }
 
 #[test]
-fn x509_rsa_pub_der_test() {
+fn x509_rsa_pub_key_test() {
     let country = "AU";
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
@@ -150,6 +150,10 @@ fn x509_rsa_pub_der_test() {
 
     let err = write_file("tests/data/ca_rsa_pd.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
+
+    let x2 = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
+    let pub_key2 = x2.pub_key().unwrap_or_else(|| panic!("Failed to get pub_key"));
+    assert_eq!(pub_key, pub_key2);
 }
 
 #[test]

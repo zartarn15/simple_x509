@@ -227,6 +227,14 @@ fn ec_pub(ec: &EcPub) -> Vec<ASN1Block> {
     ret
 }
 
+fn build_pub_key(pub_key: &Option<PubKey>) -> Option<Vec<ASN1Block>> {
+    match pub_key {
+        Some(PubKey::Rsa(ref rsa)) => rsa_pub(rsa),
+        Some(PubKey::Ec(ref ec)) => Some(ec_pub(ec)),
+        None => None,
+    }
+}
+
 fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
     let mut body = Vec::new();
 
@@ -277,15 +285,8 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
     }
 
     /* Subject Public Key Info */
-    match x.pub_key {
-        Some(PubKey::Rsa(ref rsa)) => {
-            let rsa_vec = match rsa_pub(rsa) {
-                Some(r) => r,
-                None => return None,
-            };
-            body.push(ASN1Block::Sequence(0, rsa_vec));
-        }
-        Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, ec_pub(ec))),
+    match build_pub_key(&x.pub_key) {
+        Some(v) => body.push(ASN1Block::Sequence(0, v)),
         None => return None,
     }
 
@@ -369,6 +370,21 @@ impl X509 {
         x509_full.push(ASN1Block::Sequence(0, x509));
 
         serialize(x509_full.first()?)
+    }
+
+    pub fn pub_key(self) -> Option<Vec<u8>> {
+        let asn = match build_pub_key(&self.pub_key) {
+            Some(a) => a,
+            None => return None,
+        };
+
+        match simple_asn1::to_der(&ASN1Block::Sequence(0, asn)) {
+            Ok(der) => Some(der),
+            Err(_) => {
+                println!("Failed to serialize Public Key");
+                return None;
+            }
+        }
     }
 }
 
