@@ -14,9 +14,9 @@ pub enum X509KeyUsage {
 
 #[derive(Debug, PartialEq)]
 pub struct X509Ext {
-    pub(crate) oid: Vec<u64>,
-    pub(crate) critical: bool,
-    pub(crate) data: Vec<u8>,
+    pub oid: Vec<u64>,
+    pub critical: bool,
+    pub data: Vec<u8>,
 }
 
 impl X509Ext {
