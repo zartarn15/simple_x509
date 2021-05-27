@@ -2,6 +2,7 @@ use regex::Regex;
 use ring::rand;
 use ring::signature::{self};
 use rustc_serialize::base64::FromBase64;
+use simple_asn1::ASN1Block;
 use simple_x509::*;
 use std::fs;
 use std::fs::File;
@@ -51,7 +52,39 @@ fn ec_sign_fn(data: Vec<u8>) -> Option<Vec<u8>> {
     Some(sig.as_ref().to_vec())
 }
 
-pub fn pem_to_der(f: &str) -> Option<Vec<u8>> {
+fn get_key_from_pub_key(pub_key: &Vec<u8>) -> Option<Vec<u8>> {
+    let asn = simple_asn1::from_der(pub_key).ok()?;
+    let bs = match asn.get(0)? {
+        ASN1Block::Sequence(_, s) => s.get(1)?,
+        _ => return None,
+    };
+    let key = match bs {
+        ASN1Block::BitString(_, _, k) => k,
+        _ => return None,
+    };
+
+    Some(key.to_vec())
+}
+
+fn rsa_verify_fn(pub_key: Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
+    let k = get_key_from_pub_key(&pub_key)?;
+    let key = signature::UnparsedPublicKey::new(&signature::RSA_PKCS1_2048_8192_SHA256, &k);
+    match key.verify(data, sign) {
+        Ok(_) => Some(true),
+        Err(_) => Some(false),
+    }
+}
+
+fn ec_verify_fn(pub_key: Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
+    let k = get_key_from_pub_key(&pub_key)?;
+    let key = signature::UnparsedPublicKey::new(&signature::ECDSA_P256_SHA256_ASN1, &k);
+    match key.verify(data, sign) {
+        Ok(_) => Some(true),
+        Err(_) => Some(false),
+    }
+}
+
+fn pem_to_der(f: &str) -> Option<Vec<u8>> {
     let r = Regex::new(REGEX).ok()?;
     let v = r.replace(f, "$2");
     let b = v.replace("\n", "");
@@ -371,4 +404,34 @@ fn x509_decoding_encoding() {
     }
 
     println!("{} certificates are tested", counter);
+}
+
+#[test]
+fn x509_rsa_verify() {
+    let der = read_file("tests/data/cert_rsa.der").unwrap_or_else(|_| panic!("File not found"));
+    let x = der
+        .x509_dec()
+        .unwrap_or_else(|| panic!("Failed to deserialize"));
+
+    let pub_key = read_file("tests/data/rsa_pub.der").unwrap_or_else(|_| panic!("File not found"));
+    let pub_key2 = x
+        .pub_key()
+        .unwrap_or_else(|| panic!("Failed to get Public Key"));
+
+    assert_eq!(x.verify(rsa_verify_fn, pub_key), Some(true));
+    assert_eq!(x.verify(rsa_verify_fn, pub_key2), Some(true));
+}
+
+#[test]
+fn x509_ec_verify() {
+    let der = read_file("tests/data/cert_ec.der").unwrap_or_else(|_| panic!("File not found"));
+    let x = der
+        .x509_dec()
+        .unwrap_or_else(|| panic!("Failed to deserialize"));
+
+    let pub_key = x
+        .pub_key()
+        .unwrap_or_else(|| panic!("Failed to get Public Key"));
+
+    assert_eq!(x.verify(ec_verify_fn, pub_key), Some(true));
 }

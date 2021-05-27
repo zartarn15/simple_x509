@@ -348,6 +348,27 @@ impl X509 {
         Some(x)
     }
 
+    pub fn verify<F>(&self, verify_cb: F, pub_key: Vec<u8>) -> Option<bool>
+    where
+        F: Fn(Vec<u8>, &Vec<u8>, &Vec<u8>) -> Option<bool>,
+    {
+        let body = x509_body(&self)?;
+        let data = match serialize(&ASN1Block::Sequence(0, body)) {
+            Some(d) => d,
+            None => {
+                println!("Failed: serialize()");
+                return None;
+            }
+        };
+
+        if self.sign.len() == 0 {
+            println!("Failed: no signature");
+            return None;
+        }
+
+        verify_cb(pub_key, &data, &self.sign)
+    }
+
     pub fn x509_enc(self) -> Option<Vec<u8>> {
         let mut x509 = Vec::new();
         let body = x509_body(&self)?;
@@ -372,7 +393,7 @@ impl X509 {
         serialize(x509_full.first()?)
     }
 
-    pub fn pub_key(self) -> Option<Vec<u8>> {
+    pub fn pub_key(&self) -> Option<Vec<u8>> {
         let asn = match build_pub_key(&self.pub_key) {
             Some(a) => a,
             None => return None,
