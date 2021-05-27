@@ -96,11 +96,11 @@ fn x509_rsa_root_test() {
         .not_before_utc(1_619_014_703)
         .not_after_utc(1_650_550_703)
         .pub_key_rsa(
-            vec![1, 2, 840, 113549, 1, 1, 11], /* sha256WithRSAEncryption (PKCS #1) */
             vec![1, 2, 840, 113549, 1, 1, 1],  /* rsaEncryption (PKCS #1) */
             pub_rsa_n,
             65537,
         )
+        .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption (PKCS #1) */
         .build();
 
     let cert = match x.sign(|c| rsa_sign_fn(c)) {
@@ -142,11 +142,11 @@ fn x509_ec_root_test() {
         .not_before_utc(1_619_014_703)
         .not_after_utc(1_650_550_703)
         .pub_key_ec(
-            vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
             vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
             pub_ec_key,
             vec![ 1, 2, 840, 10045, 3, 1, 7 ], /* prime256v1 (ANSI X9.62 named elliptic curve) */
         )
+        .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
     let cert = match x.sign(|c| ec_sign_fn(c)) {
@@ -181,7 +181,6 @@ fn x509_extension_raw() {
         .not_before_utc(1_619_014_703)
         .not_after_utc(1_650_550_703)
         .pub_key_ec(
-            vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
             vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
             pub_ec_key,
             vec![ 1, 2, 840, 10045, 3, 1, 7 ], /* prime256v1 (ANSI X9.62 named elliptic curve) */
@@ -191,6 +190,7 @@ fn x509_extension_raw() {
             true,
             vec![ 0x03, 0x02, 0x04, 0xB0 ],
         )
+        .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
     let cert = match x.sign(|c| ec_sign_fn(c)) {
@@ -233,12 +233,12 @@ fn x509_key_usage_extension() {
         .not_before_utc(1_619_014_703)
         .not_after_utc(1_650_550_703)
         .pub_key_ec(
-            vec![ 1, 2, 840, 10045, 4, 3, 2 ], /* ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256) */
             vec![ 1, 2, 840, 10045, 2, 1 ], /* ecPublicKey (ANSI X9.62 public key type) */
             pub_ec_key,
             vec![ 1, 2, 840, 10045, 3, 1, 7 ], /* prime256v1 (ANSI X9.62 named elliptic curve) */
         )
         .ext(key_usage)
+        .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
     let cert = match x.sign(|c| ec_sign_fn(c)) {

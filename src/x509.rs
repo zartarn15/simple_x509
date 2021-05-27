@@ -27,7 +27,6 @@ pub enum X509Time {
 
 #[derive(Debug, PartialEq)]
 pub struct RsaPub {
-    pub sign_oid: Vec<u64>,
     pub pub_oid: Vec<u64>,
     pub n: Vec<u8>,
     pub e: u32,
@@ -35,7 +34,6 @@ pub struct RsaPub {
 
 #[derive(Debug, PartialEq)]
 pub struct EcPub {
-    pub sign_oid: Vec<u64>,
     pub pub_oid: Vec<u64>,
     pub key: Vec<u8>,
     pub curve: Vec<u64>,
@@ -57,7 +55,8 @@ pub struct X509 {
     pub not_after: Option<X509Time>,
     pub pub_key: Option<PubKey>,
     pub ext: Vec<X509Ext>,
-    sign: Vec<u8>,
+    pub sign_oid: Vec<u64>,
+    pub sign: Vec<u8>,
 }
 
 fn serialize(a: &ASN1Block) -> Option<Vec<u8>> {
@@ -241,8 +240,8 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
 
     /* Signature Algorithm */
     match x.pub_key {
-        Some(PubKey::Rsa(ref rsa)) => body.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid))),
-        Some(PubKey::Ec(ref ec)) => body.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid))),
+        Some(PubKey::Rsa(_)) => body.push(ASN1Block::Sequence(0, null_oid(&x.sign_oid))),
+        Some(PubKey::Ec(_)) => body.push(ASN1Block::Sequence(0, vec_oid(&x.sign_oid))),
         None => {
             println!("Failed: no public key");
             return None;
@@ -341,6 +340,7 @@ impl X509 {
             not_after: self.not_after,
             pub_key: self.pub_key,
             ext: self.ext,
+            sign_oid: self.sign_oid,
             sign: sign,
         };
 
@@ -353,10 +353,8 @@ impl X509 {
 
         x509.push(ASN1Block::Sequence(0, body));
         match self.pub_key {
-            Some(PubKey::Rsa(ref rsa)) => {
-                x509.push(ASN1Block::Sequence(0, null_oid(&rsa.sign_oid)))
-            }
-            Some(PubKey::Ec(ref ec)) => x509.push(ASN1Block::Sequence(0, vec_oid(&ec.sign_oid))),
+            Some(PubKey::Rsa(_)) => x509.push(ASN1Block::Sequence(0, null_oid(&self.sign_oid))),
+            Some(PubKey::Ec(_)) => x509.push(ASN1Block::Sequence(0, vec_oid(&self.sign_oid))),
             None => return None,
         }
 
@@ -384,6 +382,7 @@ pub struct X509Builder {
     not_after: Option<X509Time>,
     pub_key: Option<PubKey>,
     ext: Vec<X509Ext>,
+    sign_oid: Vec<u64>,
 }
 
 impl X509Builder {
@@ -397,6 +396,7 @@ impl X509Builder {
             not_after: None,
             pub_key: None,
             ext: Vec::new(),
+            sign_oid: Vec::new(),
         }
     }
 
@@ -497,16 +497,9 @@ impl X509Builder {
         self
     }
 
-    pub fn pub_key_rsa(
-        mut self,
-        sign_oid: Vec<u64>,
-        pub_oid: Vec<u64>,
-        n: Vec<u8>,
-        e: u32,
-    ) -> X509Builder {
+    pub fn pub_key_rsa(mut self, oid: Vec<u64>, n: Vec<u8>, e: u32) -> X509Builder {
         let key = PubKey::Rsa(RsaPub {
-            sign_oid: sign_oid,
-            pub_oid: pub_oid,
+            pub_oid: oid,
             n: n,
             e: e,
         });
@@ -514,16 +507,9 @@ impl X509Builder {
         self
     }
 
-    pub fn pub_key_ec(
-        mut self,
-        sign_oid: Vec<u64>,
-        pub_oid: Vec<u64>,
-        key: Vec<u8>,
-        curve: Vec<u64>,
-    ) -> X509Builder {
+    pub fn pub_key_ec(mut self, oid: Vec<u64>, key: Vec<u8>, curve: Vec<u64>) -> X509Builder {
         let key = PubKey::Ec(EcPub {
-            sign_oid: sign_oid,
-            pub_oid: pub_oid,
+            pub_oid: oid,
             key: key,
             curve: curve,
         });
@@ -546,6 +532,11 @@ impl X509Builder {
         self
     }
 
+    pub fn sign_oid(mut self, oid: Vec<u64>) -> X509Builder {
+        self.sign_oid = oid;
+        self
+    }
+
     pub fn build(self) -> X509 {
         X509 {
             version: self.version,
@@ -556,6 +547,7 @@ impl X509Builder {
             not_after: self.not_after,
             pub_key: self.pub_key,
             ext: self.ext,
+            sign_oid: self.sign_oid,
             sign: Vec::new(),
         }
     }
@@ -648,7 +640,7 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
     Some(ret)
 }
 
-fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Option<PubKey> {
+fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
     let vec = get_asn1_seq(v, idx)?;
     let seq = get_asn1_seq(vec, 0)?;
     let pub_oid = match seq.get(0)? {
@@ -673,7 +665,6 @@ fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Optio
     };
 
     let pub_key = PubKey::Rsa(RsaPub {
-        sign_oid: sign_oid.to_vec(),
         pub_oid: pub_oid,
         n: n,
         e: e,
@@ -682,7 +673,7 @@ fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Optio
     Some(pub_key)
 }
 
-fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Option<PubKey> {
+fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
     let vec = get_asn1_seq(v, idx)?;
     let seq = get_asn1_seq(vec, 0)?;
     let pub_oid = match seq.get(0)? {
@@ -701,7 +692,6 @@ fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize, sign_oid: &Vec<u64>) -> Option
     };
 
     let pub_key = PubKey::Ec(EcPub {
-        sign_oid: sign_oid.to_vec(),
         pub_oid: pub_oid,
         key: key.to_vec(),
         curve: curve,
@@ -879,9 +869,9 @@ impl X509Deserialize for Vec<u8> {
         idx += 1;
 
         /* Subject Public Key Info */
-        let mut pub_key = get_rsa_pub_key(body, idx, &sign_oid);
+        let mut pub_key = get_rsa_pub_key(body, idx);
         if pub_key == None {
-            pub_key = get_ec_pub_key(body, idx, &sign_oid);
+            pub_key = get_ec_pub_key(body, idx);
         }
         if pub_key == None {
             println!("Failed to get Subject Public Key");
@@ -916,6 +906,7 @@ impl X509Deserialize for Vec<u8> {
             not_after: Some(not_after),
             pub_key: pub_key,
             ext: ext,
+            sign_oid: sign_oid,
             sign: sign,
         };
 
