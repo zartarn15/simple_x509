@@ -1,6 +1,6 @@
 [package]
 name = "simple_x509"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Oleksandr Kravchenko <zartarn15@gmail.com>"]
 description = "A simple X509 creating library."
 categories = ["encoding"]
