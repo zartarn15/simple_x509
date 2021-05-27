@@ -517,6 +517,11 @@ impl X509Builder {
         self
     }
 
+    pub fn pub_key_der(mut self, der: &Vec<u8>) -> X509Builder {
+        self.pub_key = get_pub_der(der);
+        self
+    }
+
     pub fn ext(mut self, ext: X509Ext) -> X509Builder {
         self.ext.push(ext);
         self
@@ -700,6 +705,27 @@ fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
     Some(pub_key)
 }
 
+fn get_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
+    let mut pub_key = get_rsa_pub_key(v, idx);
+    if pub_key == None {
+        pub_key = get_ec_pub_key(v, idx);
+    }
+
+    pub_key
+}
+
+fn get_pub_der(der: &Vec<u8>) -> Option<PubKey> {
+    let asn = match simple_asn1::from_der(der) {
+        Ok(a) => a,
+        Err(_) => {
+            println!("Failed to deserialize Public Key");
+            return None;
+        },
+    };
+
+    get_pub_key(&asn, 0)
+}
+
 fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(X509Time, X509Time)> {
     let vec = get_asn1_seq(v, idx)?;
 
@@ -869,14 +895,13 @@ impl X509Deserialize for Vec<u8> {
         idx += 1;
 
         /* Subject Public Key Info */
-        let mut pub_key = get_rsa_pub_key(body, idx);
-        if pub_key == None {
-            pub_key = get_ec_pub_key(body, idx);
-        }
-        if pub_key == None {
-            println!("Failed to get Subject Public Key");
-            return None;
-        }
+        let pub_key = match get_pub_key(body, idx) {
+            Some(a) => a,
+            None => {
+                println!("Failed to get Subject Public Key");
+                return None;
+            }
+        };
         idx += 1;
 
         /* Extensions */
@@ -904,7 +929,7 @@ impl X509Deserialize for Vec<u8> {
             subject: subject,
             not_before: Some(not_before),
             not_after: Some(not_after),
-            pub_key: pub_key,
+            pub_key: Some(pub_key),
             ext: ext,
             sign_oid: sign_oid,
             sign: sign,

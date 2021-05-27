@@ -118,6 +118,41 @@ fn x509_rsa_root_test() {
 }
 
 #[test]
+fn x509_rsa_pub_der_test() {
+    let country = "AU";
+    let state = "Some-State";
+    let organization = "Internet Widgits Pty Ltd";
+    let pub_key = read_file("tests/data/rsa_pub.der").unwrap_or_else(|_| panic!("File not found")); 
+
+    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
+        .version(2)
+        .issuer_prstr(vec![2, 5, 4, 6], country) /* countryName */
+        .issuer_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
+        .issuer_utf8(vec![2, 5, 4, 10], organization) /* organizationName */
+        .subject_prstr(vec![2, 5, 4, 6], country) /* countryName */
+        .subject_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
+        .subject_utf8(vec![2, 5, 4, 10], organization) /* organizationName */
+        .not_before_utc(1_619_014_703)
+        .not_after_utc(1_650_550_703)
+        .pub_key_der(&pub_key)
+        .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption (PKCS #1) */
+        .build();
+
+    let cert = match x.sign(|c| rsa_sign_fn(c)) {
+        Some(c) => c,
+        None => panic!("sign() failed"),
+    };
+
+    let der = match cert.x509_enc() {
+        Some(d) => d,
+        None => panic!("x509_enc() failed"),
+    };
+
+    let err = write_file("tests/data/ca_rsa_pd.der", &der).map_err(|e| e.kind());
+    assert_eq!(err, Ok(()));
+}
+
+#[test]
 fn x509_ec_root_test() {
     let pub_ec_key: Vec<u8> = vec![
         0x04, 0xFE, 0x0B, 0x0F, 0x80, 0x27, 0x39, 0xCC, 0x47, 0xD7, 0x86, 0xEE, 0x0D, 0xAE, 0xE5,
