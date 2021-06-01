@@ -29,25 +29,24 @@ fn write_file(f: &str, data: &Vec<u8>) -> std::io::Result<()> {
     Ok(())
 }
 
-fn rsa_sign_fn(data: Vec<u8>) -> Option<Vec<u8>> {
-    let der = read_file("tests/data/rsa.pkcs8").ok()?;
-    let key = signature::RsaKeyPair::from_pkcs8(&der).ok()?;
+fn rsa_sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
+    let key = signature::RsaKeyPair::from_pkcs8(sign_key).ok()?;
     let mut sig = vec![0; key.public_modulus_len()];
 
     let rng = rand::SystemRandom::new();
 
-    key.sign(&signature::RSA_PKCS1_SHA256, &rng, &data, &mut sig)
+    key.sign(&signature::RSA_PKCS1_SHA256, &rng, data, &mut sig)
         .ok()?;
 
     Some(sig)
 }
 
-fn ec_sign_fn(data: Vec<u8>) -> Option<Vec<u8>> {
-    let der = read_file("tests/data/ec.pkcs8").ok()?;
-    let key = signature::EcdsaKeyPair::from_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, &der)
-        .ok()?;
+fn ec_sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
+    let key =
+        signature::EcdsaKeyPair::from_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, sign_key)
+            .ok()?;
     let rng = rand::SystemRandom::new();
-    let sig = key.sign(&rng, &data).ok()?;
+    let sig = key.sign(&rng, data).ok()?;
 
     Some(sig.as_ref().to_vec())
 }
@@ -136,7 +135,8 @@ fn x509_rsa_root_test() {
         .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption (PKCS #1) */
         .build();
 
-    let cert = match x.sign(|c| rsa_sign_fn(c)) {
+    let sign_key = read_file("tests/data/rsa.pkcs8").unwrap_or_else(|_| panic!("File not found"));
+    let cert = match x.sign(rsa_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
     };
@@ -171,7 +171,8 @@ fn x509_rsa_pub_key_test() {
         .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption (PKCS #1) */
         .build();
 
-    let cert = match x.sign(|c| rsa_sign_fn(c)) {
+    let sign_key = read_file("tests/data/rsa.pkcs8").unwrap_or_else(|_| panic!("File not found"));
+    let cert = match x.sign(rsa_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
     };
@@ -227,7 +228,8 @@ fn x509_ec_root_test() {
         .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
-    let cert = match x.sign(|c| ec_sign_fn(c)) {
+    let sign_key = read_file("tests/data/ec.pkcs8").unwrap_or_else(|_| panic!("File not found"));
+    let cert = match x.sign(ec_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
     };
@@ -271,7 +273,8 @@ fn x509_extension_raw() {
         .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
-    let cert = match x.sign(|c| ec_sign_fn(c)) {
+    let sign_key = read_file("tests/data/ec.pkcs8").unwrap_or_else(|_| panic!("File not found"));
+    let cert = match x.sign(ec_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
     };
@@ -319,7 +322,8 @@ fn x509_key_usage_extension() {
         .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
-    let cert = match x.sign(|c| ec_sign_fn(c)) {
+    let sign_key = read_file("tests/data/ec.pkcs8").unwrap_or_else(|_| panic!("File not found"));
+    let cert = match x.sign(ec_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("build() failed"),
     };

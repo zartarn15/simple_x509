@@ -311,9 +311,9 @@ impl X509 {
         X509Builder::default()
     }
 
-    pub fn sign<F>(self, sign_cb: F) -> Option<X509>
+    pub fn sign<F>(self, sign_cb: F, sign_key: &Vec<u8>) -> Option<X509>
     where
-        F: Fn(Vec<u8>) -> Option<Vec<u8>>,
+        F: Fn(&Vec<u8>, &Vec<u8>) -> Option<Vec<u8>>,
     {
         let body = x509_body(&self)?;
         let data = match serialize(&ASN1Block::Sequence(0, body)) {
@@ -324,7 +324,7 @@ impl X509 {
             }
         };
 
-        let sign = match sign_cb(data) {
+        let sign = match sign_cb(&data, sign_key) {
             Some(s) => s,
             None => {
                 println!("Failed: signature");
