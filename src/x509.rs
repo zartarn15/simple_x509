@@ -348,9 +348,9 @@ impl X509 {
         Some(x)
     }
 
-    pub fn verify<F>(&self, verify_cb: F, pub_key: Vec<u8>) -> Option<bool>
+    pub fn verify<F>(&self, verify_cb: F, pub_key: &Vec<u8>) -> Option<bool>
     where
-        F: Fn(Vec<u8>, &Vec<u8>, &Vec<u8>) -> Option<bool>,
+        F: Fn(&Vec<u8>, &Vec<u8>, &Vec<u8>) -> Option<bool>,
     {
         let body = x509_body(&self)?;
         let data = match serialize(&ASN1Block::Sequence(0, body)) {

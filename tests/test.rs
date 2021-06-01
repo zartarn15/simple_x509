@@ -66,8 +66,8 @@ fn get_key_from_pub_key(pub_key: &Vec<u8>) -> Option<Vec<u8>> {
     Some(key.to_vec())
 }
 
-fn rsa_verify_fn(pub_key: Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
-    let k = get_key_from_pub_key(&pub_key)?;
+fn rsa_verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
+    let k = get_key_from_pub_key(pub_key)?;
     let key = signature::UnparsedPublicKey::new(&signature::RSA_PKCS1_2048_8192_SHA256, &k);
     match key.verify(data, sign) {
         Ok(_) => Some(true),
@@ -75,8 +75,8 @@ fn rsa_verify_fn(pub_key: Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<boo
     }
 }
 
-fn ec_verify_fn(pub_key: Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
-    let k = get_key_from_pub_key(&pub_key)?;
+fn ec_verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
+    let k = get_key_from_pub_key(pub_key)?;
     let key = signature::UnparsedPublicKey::new(&signature::ECDSA_P256_SHA256_ASN1, &k);
     match key.verify(data, sign) {
         Ok(_) => Some(true),
@@ -418,8 +418,8 @@ fn x509_rsa_verify() {
         .pub_key()
         .unwrap_or_else(|| panic!("Failed to get Public Key"));
 
-    assert_eq!(x.verify(rsa_verify_fn, pub_key), Some(true));
-    assert_eq!(x.verify(rsa_verify_fn, pub_key2), Some(true));
+    assert_eq!(x.verify(rsa_verify_fn, &pub_key), Some(true));
+    assert_eq!(x.verify(rsa_verify_fn, &pub_key2), Some(true));
 }
 
 #[test]
@@ -433,5 +433,5 @@ fn x509_ec_verify() {
         .pub_key()
         .unwrap_or_else(|| panic!("Failed to get Public Key"));
 
-    assert_eq!(x.verify(ec_verify_fn, pub_key), Some(true));
+    assert_eq!(x.verify(ec_verify_fn, &pub_key), Some(true));
 }
