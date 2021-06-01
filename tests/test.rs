@@ -439,3 +439,26 @@ fn x509_ec_verify() {
 
     assert_eq!(x.verify(ec_verify_fn, &pub_key), Some(true));
 }
+
+#[test]
+fn x509_key_usage_decoding() {
+    let der =
+        read_file("tests/data/cert_key_usage.der").unwrap_or_else(|_| panic!("File not found"));
+    let x = der
+        .x509_dec()
+        .unwrap_or_else(|| panic!("Failed to deserialize"));
+
+    let key_usage = x
+        .ext
+        .key_usage()
+        .unwrap_or_else(|| panic!("KeyUsage extension is not found"));
+
+    assert_eq!(
+        key_usage,
+        vec![
+            X509KeyUsage::DigitalSignature,
+            X509KeyUsage::KeyEncipherment,
+            X509KeyUsage::DataEncipherment,
+        ]
+    );
+}

@@ -108,3 +108,59 @@ impl X509ExtBuilder {
         }
     }
 }
+
+fn parse_key_usage(data: &Vec<u8>) -> Option<Vec<X509KeyUsage>> {
+    let asn = simple_asn1::from_der(data).ok()?;
+    let b = match asn.get(0)? {
+        ASN1Block::BitString(_, _, b) => b,
+        _ => return None,
+    };
+
+    let mut bits = Vec::new();
+
+    if b.get(0)? & (1 << 7) != 0 {
+        bits.push(X509KeyUsage::DigitalSignature);
+    }
+    if b.get(0)? & (1 << 6) != 0 {
+        bits.push(X509KeyUsage::NonRepudiation);
+    }
+    if b.get(0)? & (1 << 5) != 0 {
+        bits.push(X509KeyUsage::KeyEncipherment);
+    }
+    if b.get(0)? & (1 << 4) != 0 {
+        bits.push(X509KeyUsage::DataEncipherment);
+    }
+    if b.get(0)? & (1 << 3) != 0 {
+        bits.push(X509KeyUsage::KeyAgreement);
+    }
+    if b.get(0)? & (1 << 2) != 0 {
+        bits.push(X509KeyUsage::KeyCertSign);
+    }
+    if b.get(0)? & (1 << 1) != 0 {
+        bits.push(X509KeyUsage::CRLSign);
+    }
+    if b.get(0)? & (1 << 0) != 0 {
+        bits.push(X509KeyUsage::EncipherOnly);
+    }
+    if b.len() > 1 && b.get(1)? & (1 << 7) != 0 {
+        bits.push(X509KeyUsage::DecipherOnly);
+    }
+
+    Some(bits)
+}
+
+pub trait X509ExtDeserialize {
+    fn key_usage(&self) -> Option<Vec<X509KeyUsage>>;
+}
+
+impl X509ExtDeserialize for Vec<X509Ext> {
+    fn key_usage(&self) -> Option<Vec<X509KeyUsage>> {
+        for e in self.iter() {
+            if e.oid == vec![2, 5, 29, 15] {
+                return parse_key_usage(&e.data);
+            }
+        }
+
+        None
+    }
+}
