@@ -24,15 +24,21 @@
 //!
 //! Create and verify self-signed CA certificate
 //!
-//! ```rust
+//! ```no_run
 //! use simple_x509::*;
 //!
 //! fn sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
-//!     // Signing implementation
+//!
+//!     // Signing implementation ...
+//!
+//!     Some(Vec::new())
 //! }
 //!
 //! fn verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
-//!     // Verify implementation
+//!
+//!     // Verify implementation ...
+//!
+//!     Some(true)
 //! }
 //!
 //! fn main() {
