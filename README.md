@@ -13,15 +13,6 @@ A Library featuring:
 
 ## Usage
 
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-simple_x509 = "0.2.0"
-```
-
-## Simple X509
-
 Create and verify self-signed CA certificate
 
 ```rust
@@ -44,7 +35,7 @@ fn main() {
     let pub_key = std::fs::read("rsa_pub.der").unwrap();
 
     // Build X509 structure
-    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34]) /* SerialNumber */
+    let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03]) /* SerialNumber */
         .version(2)
         .issuer_prstr(vec![2, 5, 4, 6], country) /* countryName */
         .issuer_utf8(vec![2, 5, 4, 8], state) /* stateOrProvinceName */
@@ -55,23 +46,23 @@ fn main() {
         .not_before_utc(1_619_014_703)
         .not_after_utc(1_650_550_703)
         .pub_key_der(&pub_key)
-        .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption (PKCS #1) */
+        .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption */
         .build();
 
     // Load Signing Key
     let sign_key = std::fs::read("rsa.pkcs8").unwrap();
 
     // Signing a certificate with external function
-    let cert = x.sign(sign_fn, &sign_key).unwrap_or_else(|| panic!("Signing failed"));
+    let cert = x.sign(sign_fn, &sign_key).unwrap());
 
     // Encode to DER format
-    let der = cert.x509_enc().unwrap_or_else(|| panic!("x509_enc() failed"));
+    let der = cert.x509_enc().unwrap());
 
     // Decode
-    let x2 = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
+    let x2 = der.x509_dec().unwrap());
 
     // Getting Public Key in DER format from certificate
-    let pub_key2 = x2.pub_key().unwrap_or_else(|| panic!("Failed to get Public Key"));
+    let pub_key2 = x2.pub_key().unwrap();
 
     // Verify signature with external function
     let res = x2.verify(verify_fn, &pub_key2);

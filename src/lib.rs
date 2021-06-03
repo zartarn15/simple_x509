@@ -13,15 +13,6 @@
 //!
 //! ## Usage
 //!
-//! Add this to your `Cargo.toml`:
-//!
-//! ```toml
-//! [dependencies]
-//! simple_x509 = "0.2.0"
-//! ```
-//!
-//! ## Simple X509
-//!
 //! Create and verify self-signed CA certificate
 //!
 //! ```no_run
