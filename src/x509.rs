@@ -66,65 +66,57 @@ fn serialize(a: &ASN1Block) -> Option<Vec<u8>> {
     }
 }
 
-fn oid_new(id: &Vec<u64>) -> OID {
+fn oid_new(id: &[u64]) -> OID {
     let mut res = Vec::new();
 
-    for i in 0..id.len() {
-        res.push(BigUint::from(id[i]));
+    for it in id {
+        res.push(BigUint::from(*it));
     }
 
     OID::new(res)
 }
 
 fn seq_oid_str(v: &OidStr) -> Vec<ASN1Block> {
-    let mut vec = Vec::new();
-    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
-    vec.push(ASN1Block::PrintableString(1, String::from(&v.data)));
+    let vec = vec![
+        ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)),
+        ASN1Block::PrintableString(1, String::from(&v.data)),
+    ];
 
-    let mut seq = Vec::new();
-    seq.push(ASN1Block::Sequence(0, vec));
-
-    seq
+    vec![ASN1Block::Sequence(0, vec)]
 }
 
 fn seq_oid_utf8(v: &OidStr) -> Vec<ASN1Block> {
-    let mut vec = Vec::new();
-    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
-    vec.push(ASN1Block::UTF8String(1, String::from(&v.data)));
+    let vec = vec![
+        ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)),
+        ASN1Block::UTF8String(1, String::from(&v.data)),
+    ];
 
-    let mut seq = Vec::new();
-    seq.push(ASN1Block::Sequence(0, vec));
-
-    seq
+    vec![ASN1Block::Sequence(0, vec)]
 }
 
 fn seq_oid_ttx(v: &OidStr) -> Vec<ASN1Block> {
-    let mut vec = Vec::new();
-    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
-    vec.push(ASN1Block::TeletexString(1, String::from(&v.data)));
+    let vec = vec![
+        ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)),
+        ASN1Block::TeletexString(1, String::from(&v.data)),
+    ];
 
-    let mut seq = Vec::new();
-    seq.push(ASN1Block::Sequence(0, vec));
-
-    seq
+    vec![ASN1Block::Sequence(0, vec)]
 }
 
 fn seq_oid_ia5(v: &OidStr) -> Vec<ASN1Block> {
-    let mut vec = Vec::new();
-    vec.push(ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)));
-    vec.push(ASN1Block::IA5String(1, String::from(&v.data)));
+    let vec = vec![
+        ASN1Block::ObjectIdentifier(0, oid_new(&v.oid)),
+        ASN1Block::IA5String(1, String::from(&v.data)),
+    ];
 
-    let mut seq = Vec::new();
-    seq.push(ASN1Block::Sequence(0, vec));
-
-    seq
+    vec![ASN1Block::Sequence(0, vec)]
 }
 
-fn x509_name(name: &Vec<X509Name>) -> Vec<ASN1Block> {
+fn x509_name(name: &[X509Name]) -> Vec<ASN1Block> {
     let mut n = Vec::new();
 
-    for i in 0..name.len() {
-        match &name[i] {
+    for it in name {
+        match it {
             X509Name::Utf8(s) => n.push(ASN1Block::Set(0, seq_oid_utf8(s))),
             X509Name::PrStr(s) => n.push(ASN1Block::Set(0, seq_oid_str(s))),
             X509Name::TtxStr(s) => n.push(ASN1Block::Set(0, seq_oid_ttx(s))),
@@ -155,7 +147,7 @@ fn version_explicit(val: u64) -> ASN1Block {
     ASN1Block::Explicit(
         ASN1Class::ContextSpecific,
         0,
-        BigUint::from(0 as u32),
+        BigUint::from(0_u32),
         Box::new(ASN1Block::Integer(0, BigInt::from(val))),
     )
 }
@@ -164,14 +156,13 @@ fn extension_explicit(ext: Vec<ASN1Block>) -> ASN1Block {
     ASN1Block::Explicit(
         ASN1Class::ContextSpecific,
         0,
-        BigUint::from(3 as u32),
+        BigUint::from(3_u32),
         Box::new(ASN1Block::Sequence(0, ext)),
     )
 }
 
 fn x509_ext(e: &X509Ext) -> Vec<ASN1Block> {
-    let mut ext = Vec::new();
-    ext.push(ASN1Block::ObjectIdentifier(0, oid_new(&e.oid)));
+    let mut ext = vec![ASN1Block::ObjectIdentifier(0, oid_new(&e.oid))];
     if e.critical {
         ext.push(ASN1Block::Boolean(0, true));
     }
@@ -180,25 +171,22 @@ fn x509_ext(e: &X509Ext) -> Vec<ASN1Block> {
     ext
 }
 
-fn null_oid(oid: &Vec<u64>) -> Vec<ASN1Block> {
-    let mut sa = Vec::new();
-    sa.push(ASN1Block::ObjectIdentifier(0, oid_new(oid)));
-    sa.push(ASN1Block::Null(0));
-
-    sa
+fn null_oid(oid: &[u64]) -> Vec<ASN1Block> {
+    vec![
+        ASN1Block::ObjectIdentifier(0, oid_new(oid)),
+        ASN1Block::Null(0),
+    ]
 }
 
-fn vec_oid(oid: &Vec<u64>) -> Vec<ASN1Block> {
-    let mut sa = Vec::new();
-    sa.push(ASN1Block::ObjectIdentifier(0, oid_new(oid)));
-
-    sa
+fn vec_oid(oid: &[u64]) -> Vec<ASN1Block> {
+    vec![ASN1Block::ObjectIdentifier(0, oid_new(oid))]
 }
 
 fn rsa_pub(rsa: &RsaPub) -> Option<Vec<ASN1Block>> {
-    let mut r = Vec::new();
-    r.push(ASN1Block::Integer(0, BigInt::from_signed_bytes_be(&rsa.n)));
-    r.push(ASN1Block::Integer(0, BigInt::from(rsa.e)));
+    let r = vec![
+        ASN1Block::Integer(0, BigInt::from_signed_bytes_be(&rsa.n)),
+        ASN1Block::Integer(0, BigInt::from(rsa.e)),
+    ];
 
     let der = match simple_asn1::to_der(&ASN1Block::Sequence(0, r)) {
         Ok(d) => d,
@@ -208,23 +196,22 @@ fn rsa_pub(rsa: &RsaPub) -> Option<Vec<ASN1Block>> {
         }
     };
 
-    let mut ret = Vec::new();
-    ret.push(ASN1Block::Sequence(0, null_oid(&rsa.pub_oid)));
-    ret.push(ASN1Block::BitString(0, der.len() * 8, der));
-
-    Some(ret)
+    Some(vec![
+        ASN1Block::Sequence(0, null_oid(&rsa.pub_oid)),
+        ASN1Block::BitString(0, der.len() * 8, der),
+    ])
 }
 
 fn ec_pub(ec: &EcPub) -> Vec<ASN1Block> {
-    let mut e = Vec::new();
-    e.push(ASN1Block::ObjectIdentifier(0, oid_new(&ec.pub_oid)));
-    e.push(ASN1Block::ObjectIdentifier(0, oid_new(&ec.curve)));
+    let e = vec![
+        ASN1Block::ObjectIdentifier(0, oid_new(&ec.pub_oid)),
+        ASN1Block::ObjectIdentifier(0, oid_new(&ec.curve)),
+    ];
 
-    let mut ret = Vec::new();
-    ret.push(ASN1Block::Sequence(0, e));
-    ret.push(ASN1Block::BitString(0, ec.key.len() * 8, ec.key.clone()));
-
-    ret
+    vec![
+        ASN1Block::Sequence(0, e),
+        ASN1Block::BitString(0, ec.key.len() * 8, ec.key.clone()),
+    ]
 }
 
 fn build_pub_key(pub_key: &Option<PubKey>) -> Option<Vec<ASN1Block>> {
@@ -257,7 +244,7 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
     }
 
     /* Issuer name */
-    if x.issuer.len() > 0 {
+    if !x.issuer.is_empty() {
         body.push(ASN1Block::Sequence(0, x509_name(&x.issuer)));
     } else {
         println!("Failed: no issuer name");
@@ -271,13 +258,13 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
     }
 
     let validity = validity_time(
-        &x.not_before.as_ref().unwrap(),
-        &x.not_after.as_ref().unwrap(),
+        x.not_before.as_ref().unwrap(),
+        x.not_after.as_ref().unwrap(),
     );
     body.push(ASN1Block::Sequence(0, validity));
 
     /* Subject name */
-    if x.subject.len() > 0 {
+    if !x.subject.is_empty() {
         body.push(ASN1Block::Sequence(0, x509_name(&x.subject)));
     } else {
         println!("Failed: no subject name");
@@ -299,7 +286,7 @@ fn x509_body(x: &X509) -> Option<Vec<ASN1Block>> {
         ));
     }
 
-    if x.ext.len() > 0 {
+    if !x.ext.is_empty() {
         body.push(extension_explicit(ext));
     }
 
@@ -311,9 +298,9 @@ impl X509 {
         X509Builder::default()
     }
 
-    pub fn sign<F>(self, sign_cb: F, sign_key: &Vec<u8>) -> Option<X509>
+    pub fn sign<F>(self, sign_cb: F, sign_key: &[u8]) -> Option<X509>
     where
-        F: Fn(&Vec<u8>, &Vec<u8>) -> Option<Vec<u8>>,
+        F: Fn(&[u8], &[u8]) -> Option<Vec<u8>>,
     {
         let body = x509_body(&self)?;
         let data = match serialize(&ASN1Block::Sequence(0, body)) {
@@ -342,17 +329,17 @@ impl X509 {
             pub_key: self.pub_key,
             ext: self.ext,
             sign_oid: self.sign_oid,
-            sign: sign,
+            sign,
         };
 
         Some(x)
     }
 
-    pub fn verify<F>(&self, verify_cb: F, pub_key: &Vec<u8>) -> Option<bool>
+    pub fn verify<F>(&self, verify_cb: F, pub_key: &[u8]) -> Option<bool>
     where
-        F: Fn(&Vec<u8>, &Vec<u8>, &Vec<u8>) -> Option<bool>,
+        F: Fn(&[u8], &[u8], &[u8]) -> Option<bool>,
     {
-        let body = x509_body(&self)?;
+        let body = x509_body(self)?;
         let data = match serialize(&ASN1Block::Sequence(0, body)) {
             Some(d) => d,
             None => {
@@ -361,7 +348,7 @@ impl X509 {
             }
         };
 
-        if self.sign.len() == 0 {
+        if self.sign.is_empty() {
             println!("Failed: no signature");
             return None;
         }
@@ -380,15 +367,14 @@ impl X509 {
             None => return None,
         }
 
-        if self.sign.len() == 0 {
+        if self.sign.is_empty() {
             println!("Failed: no signature");
             return None;
         }
 
         x509.push(ASN1Block::BitString(0, self.sign.len() * 8, self.sign));
 
-        let mut x509_full = Vec::new();
-        x509_full.push(ASN1Block::Sequence(0, x509));
+        let x509_full = vec![ASN1Block::Sequence(0, x509)];
 
         serialize(x509_full.first()?)
     }
@@ -403,7 +389,7 @@ impl X509 {
             Ok(der) => Some(der),
             Err(_) => {
                 println!("Failed to serialize Public Key");
-                return None;
+                None
             }
         }
     }
@@ -426,7 +412,7 @@ impl X509Builder {
     pub fn new(sn: Vec<u8>) -> X509Builder {
         X509Builder {
             version: None,
-            sn: sn,
+            sn,
             issuer: Vec::new(),
             subject: Vec::new(),
             not_before: None,
@@ -444,7 +430,7 @@ impl X509Builder {
 
     pub fn issuer_utf8(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::Utf8(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.issuer.push(name);
@@ -453,7 +439,7 @@ impl X509Builder {
 
     pub fn issuer_prstr(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::PrStr(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.issuer.push(name);
@@ -462,7 +448,7 @@ impl X509Builder {
 
     pub fn issuer_ttxstr(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::TtxStr(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.issuer.push(name);
@@ -471,7 +457,7 @@ impl X509Builder {
 
     pub fn issuer_ia5str(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::Ia5Str(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.issuer.push(name);
@@ -480,7 +466,7 @@ impl X509Builder {
 
     pub fn subject_utf8(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::Utf8(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.subject.push(name);
@@ -489,7 +475,7 @@ impl X509Builder {
 
     pub fn subject_prstr(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::PrStr(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.subject.push(name);
@@ -498,7 +484,7 @@ impl X509Builder {
 
     pub fn subject_ttxstr(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::TtxStr(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.subject.push(name);
@@ -507,7 +493,7 @@ impl X509Builder {
 
     pub fn subject_ia5str(mut self, oid: Vec<u64>, data: &str) -> X509Builder {
         let name = X509Name::Ia5Str(OidStr {
-            oid: oid,
+            oid,
             data: data.to_string(),
         });
         self.subject.push(name);
@@ -534,27 +520,23 @@ impl X509Builder {
         self
     }
 
-    pub fn pub_key_rsa(mut self, oid: Vec<u64>, n: Vec<u8>, e: u32) -> X509Builder {
-        let key = PubKey::Rsa(RsaPub {
-            pub_oid: oid,
-            n: n,
-            e: e,
-        });
+    pub fn pub_key_rsa(mut self, pub_oid: Vec<u64>, n: Vec<u8>, e: u32) -> X509Builder {
+        let key = PubKey::Rsa(RsaPub { pub_oid, n, e });
         self.pub_key = Some(key);
         self
     }
 
-    pub fn pub_key_ec(mut self, oid: Vec<u64>, key: Vec<u8>, curve: Vec<u64>) -> X509Builder {
+    pub fn pub_key_ec(mut self, pub_oid: Vec<u64>, key: Vec<u8>, curve: Vec<u64>) -> X509Builder {
         let key = PubKey::Ec(EcPub {
-            pub_oid: oid,
-            key: key,
-            curve: curve,
+            pub_oid,
+            key,
+            curve,
         });
         self.pub_key = Some(key);
         self
     }
 
-    pub fn pub_key_der(mut self, der: &Vec<u8>) -> X509Builder {
+    pub fn pub_key_der(mut self, der: &[u8]) -> X509Builder {
         self.pub_key = get_pub_der(der);
         self
     }
@@ -566,9 +548,9 @@ impl X509Builder {
 
     pub fn ext_raw(mut self, oid: Vec<u64>, critical: bool, data: Vec<u8>) -> X509Builder {
         let ext = X509Ext {
-            oid: oid,
-            critical: critical,
-            data: data,
+            oid,
+            critical,
+            data,
         };
         self.ext.push(ext);
         self
@@ -595,7 +577,7 @@ impl X509Builder {
     }
 }
 
-fn get_asn1_seq(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
+fn get_asn1_seq(v: &[ASN1Block], idx: usize) -> Option<&Vec<ASN1Block>> {
     let block = v.get(idx)?;
     match block {
         ASN1Block::Sequence(_, vec) => Some(vec),
@@ -603,7 +585,7 @@ fn get_asn1_seq(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
     }
 }
 
-fn get_asn1_set(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
+fn get_asn1_set(v: &[ASN1Block], idx: usize) -> Option<&Vec<ASN1Block>> {
     let block = v.get(idx)?;
     match block {
         ASN1Block::Set(_, vec) => Some(vec),
@@ -611,7 +593,7 @@ fn get_asn1_set(v: &Vec<ASN1Block>, idx: usize) -> Option<&Vec<ASN1Block>> {
     }
 }
 
-fn get_serial_number(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<u8>> {
+fn get_serial_number(v: &[ASN1Block], idx: usize) -> Option<Vec<u8>> {
     let block = v.get(idx)?;
     match block {
         ASN1Block::Integer(_, b) => Some(BigInt::to_signed_bytes_be(b)),
@@ -619,7 +601,7 @@ fn get_serial_number(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<u8>> {
     }
 }
 
-fn get_version(v: &Vec<ASN1Block>) -> Option<u64> {
+fn get_version(v: &[ASN1Block]) -> Option<u64> {
     let block = v.get(0)?;
     match block {
         ASN1Block::Explicit(_, _, tag, val) => {
@@ -636,15 +618,15 @@ fn get_version(v: &Vec<ASN1Block>) -> Option<u64> {
     }
 }
 
-fn get_sign_oid(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<u64>> {
+fn get_sign_oid(v: &[ASN1Block], idx: usize) -> Option<Vec<u64>> {
     let vec = get_asn1_seq(v, idx)?;
     match vec.get(0)? {
         ASN1Block::ObjectIdentifier(_, o) => o.as_vec().ok(),
-        _ => return None,
+        _ => None,
     }
 }
 
-fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
+fn get_x509_name(v: &[ASN1Block], idx: usize) -> Option<Vec<X509Name>> {
     let vec = get_asn1_seq(v, idx)?;
     let mut ret = Vec::new();
 
@@ -658,19 +640,19 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
 
         let name = match seq.get(1)? {
             ASN1Block::UTF8String(_, d) => X509Name::Utf8(OidStr {
-                oid: oid,
+                oid,
                 data: d.to_string(),
             }),
             ASN1Block::PrintableString(_, d) => X509Name::PrStr(OidStr {
-                oid: oid,
+                oid,
                 data: d.to_string(),
             }),
             ASN1Block::TeletexString(_, d) => X509Name::TtxStr(OidStr {
-                oid: oid,
+                oid,
                 data: d.to_string(),
             }),
             ASN1Block::IA5String(_, d) => X509Name::Ia5Str(OidStr {
-                oid: oid,
+                oid,
                 data: d.to_string(),
             }),
             _ => return None,
@@ -682,7 +664,7 @@ fn get_x509_name(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Name>> {
     Some(ret)
 }
 
-fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
+fn get_rsa_pub_key(v: &[ASN1Block], idx: usize) -> Option<PubKey> {
     let vec = get_asn1_seq(v, idx)?;
     let seq = get_asn1_seq(vec, 0)?;
     let pub_oid = match seq.get(0)? {
@@ -706,16 +688,12 @@ fn get_rsa_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
         _ => return None,
     };
 
-    let pub_key = PubKey::Rsa(RsaPub {
-        pub_oid: pub_oid,
-        n: n,
-        e: e,
-    });
+    let pub_key = PubKey::Rsa(RsaPub { pub_oid, n, e });
 
     Some(pub_key)
 }
 
-fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
+fn get_ec_pub_key(v: &[ASN1Block], idx: usize) -> Option<PubKey> {
     let vec = get_asn1_seq(v, idx)?;
     let seq = get_asn1_seq(vec, 0)?;
     let pub_oid = match seq.get(0)? {
@@ -734,15 +712,15 @@ fn get_ec_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
     };
 
     let pub_key = PubKey::Ec(EcPub {
-        pub_oid: pub_oid,
+        pub_oid,
         key: key.to_vec(),
-        curve: curve,
+        curve,
     });
 
     Some(pub_key)
 }
 
-fn get_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
+fn get_pub_key(v: &[ASN1Block], idx: usize) -> Option<PubKey> {
     let mut pub_key = get_rsa_pub_key(v, idx);
     if pub_key == None {
         pub_key = get_ec_pub_key(v, idx);
@@ -751,7 +729,7 @@ fn get_pub_key(v: &Vec<ASN1Block>, idx: usize) -> Option<PubKey> {
     pub_key
 }
 
-fn get_pub_der(der: &Vec<u8>) -> Option<PubKey> {
+fn get_pub_der(der: &[u8]) -> Option<PubKey> {
     let asn = match simple_asn1::from_der(der) {
         Ok(a) => a,
         Err(_) => {
@@ -763,7 +741,7 @@ fn get_pub_der(der: &Vec<u8>) -> Option<PubKey> {
     get_pub_key(&asn, 0)
 }
 
-fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(X509Time, X509Time)> {
+fn get_x509_time(v: &[ASN1Block], idx: usize) -> Option<(X509Time, X509Time)> {
     let vec = get_asn1_seq(v, idx)?;
 
     let not_before = match vec.get(0)? {
@@ -781,7 +759,7 @@ fn get_x509_time(v: &Vec<ASN1Block>, idx: usize) -> Option<(X509Time, X509Time)>
     Some((not_before, not_after))
 }
 
-fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
+fn get_ext_raw(v: &[ASN1Block]) -> Option<Vec<X509Ext>> {
     let mut ret = Vec::new();
 
     for i in (0..v.len()).rev() {
@@ -807,8 +785,8 @@ fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
         };
 
         ret.push(X509Ext {
-            oid: oid,
-            critical: critical,
+            oid,
+            critical,
             data: data.to_vec(),
         });
     }
@@ -816,7 +794,7 @@ fn get_ext_raw(v: &Vec<ASN1Block>) -> Option<Vec<X509Ext>> {
     Some(ret)
 }
 
-fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
+fn get_extensions(v: &[ASN1Block], idx: usize) -> Option<Vec<X509Ext>> {
     let block = match v.get(idx) {
         Some(b) => b,
         _ => return Some(Vec::new()),
@@ -837,7 +815,7 @@ fn get_extensions(v: &Vec<ASN1Block>, idx: usize) -> Option<Vec<X509Ext>> {
     }
 }
 
-fn get_signature(v: &Vec<ASN1Block>) -> Option<Vec<u8>> {
+fn get_signature(v: &[ASN1Block]) -> Option<Vec<u8>> {
     match v.get(2)? {
         ASN1Block::BitString(_, _, s) => Some(s.to_vec()),
         _ => None,
@@ -866,7 +844,7 @@ impl X509Deserialize for Vec<u8> {
             }
         };
 
-        let body = match get_asn1_seq(&x509, 0) {
+        let body = match get_asn1_seq(x509, 0) {
             Some(a) => a,
             None => {
                 println!("Failed to get body");
@@ -951,7 +929,7 @@ impl X509Deserialize for Vec<u8> {
         };
 
         /* Signature */
-        let sign = match get_signature(&x509) {
+        let sign = match get_signature(x509) {
             Some(a) => a,
             None => {
                 println!("Failed to get Signature");
@@ -960,16 +938,16 @@ impl X509Deserialize for Vec<u8> {
         };
 
         let x = X509 {
-            version: version,
-            sn: sn,
-            issuer: issuer,
-            subject: subject,
+            version,
+            sn,
+            issuer,
+            subject,
             not_before: Some(not_before),
             not_after: Some(not_after),
             pub_key: Some(pub_key),
-            ext: ext,
-            sign_oid: sign_oid,
-            sign: sign,
+            ext,
+            sign_oid,
+            sign,
         };
 
         Some(x)

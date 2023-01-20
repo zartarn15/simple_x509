@@ -9,7 +9,7 @@ use std::str;
 
 const REGEX: &'static str = r"(-----BEGIN .*-----\n)((?:(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)*\n)+)(-----END .*-----)";
 
-fn rsa_sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
+fn rsa_sign_fn(data: &[u8], sign_key: &[u8]) -> Option<Vec<u8>> {
     let key = signature::RsaKeyPair::from_pkcs8(sign_key).ok()?;
     let mut sig = vec![0; key.public_modulus_len()];
 
@@ -21,7 +21,7 @@ fn rsa_sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
     Some(sig)
 }
 
-fn ec_sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
+fn ec_sign_fn(data: &[u8], sign_key: &[u8]) -> Option<Vec<u8>> {
     let key =
         signature::EcdsaKeyPair::from_pkcs8(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, sign_key)
             .ok()?;
@@ -45,8 +45,8 @@ fn ring_key_from_pub_key(pub_key: &Vec<u8>) -> Option<Vec<u8>> {
     Some(key.to_vec())
 }
 
-fn rsa_verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
-    let k = ring_key_from_pub_key(pub_key)?;
+fn rsa_verify_fn(pub_key: &[u8], data: &[u8], sign: &[u8]) -> Option<bool> {
+    let k = ring_key_from_pub_key(&pub_key.to_vec())?;
     let key = signature::UnparsedPublicKey::new(&signature::RSA_PKCS1_2048_8192_SHA256, &k);
     match key.verify(data, sign) {
         Ok(_) => Some(true),
@@ -54,8 +54,8 @@ fn rsa_verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bo
     }
 }
 
-fn ec_verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
-    let k = ring_key_from_pub_key(pub_key)?;
+fn ec_verify_fn(pub_key: &[u8], data: &[u8], sign: &[u8]) -> Option<bool> {
+    let k = ring_key_from_pub_key(&pub_key.to_vec())?;
     let key = signature::UnparsedPublicKey::new(&signature::ECDSA_P256_SHA256_ASN1, &k);
     match key.verify(data, sign) {
         Ok(_) => Some(true),
@@ -75,7 +75,7 @@ fn x509_rsa_root_test() {
     let country = "AU";
     let state = "Some-State";
     let organization = "Internet Widgits Pty Ltd";
-    let pub_key = std::fs::read("tests/data/rsa_pub.der").unwrap_or_else(|_| panic!("Not found"));
+    let pub_key = std::fs::read("tests/data/rsa_pub.der").expect("Not found");
 
     let x = X509Builder::new(vec![0xf2, 0xf9, 0xd8, 0x03, 0xd7, 0xb7, 0xd7, 0x34])
         .version(2)
@@ -91,7 +91,7 @@ fn x509_rsa_root_test() {
         .sign_oid(vec![1, 2, 840, 113549, 1, 1, 11]) /* sha256WithRSAEncryption (PKCS #1) */
         .build();
 
-    let sign_key = std::fs::read("tests/data/rsa.pkcs8").unwrap_or_else(|_| panic!("Not found"));
+    let sign_key = std::fs::read("tests/data/rsa.pkcs8").expect("Not found");
     let cert = match x.sign(rsa_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
@@ -105,13 +105,9 @@ fn x509_rsa_root_test() {
     let err = std::fs::write("tests/data/ca_rsa.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
 
-    let x2 = der
-        .x509_dec()
-        .unwrap_or_else(|| panic!("Failed to deserialize"));
+    let x2 = der.x509_dec().expect("Failed to deserialize");
 
-    let pub_key2 = x2
-        .pub_key()
-        .unwrap_or_else(|| panic!("Failed to get pub_key"));
+    let pub_key2 = x2.pub_key().expect("Failed to get pub_key");
 
     assert_eq!(pub_key, pub_key2);
 }
@@ -148,7 +144,7 @@ fn x509_ec_root_test() {
         .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
-    let sign_key = std::fs::read("tests/data/ec.pkcs8").unwrap_or_else(|_| panic!("Not found"));
+    let sign_key = std::fs::read("tests/data/ec.pkcs8").expect("Not found");
     let cert = match x.sign(ec_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
@@ -193,7 +189,7 @@ fn x509_extension_raw() {
         .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
-    let sign_key = std::fs::read("tests/data/ec.pkcs8").unwrap_or_else(|_| panic!("Not found"));
+    let sign_key = std::fs::read("tests/data/ec.pkcs8").expect("Not found");
     let cert = match x.sign(ec_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("sign() failed"),
@@ -242,7 +238,7 @@ fn x509_key_usage_extension() {
         .sign_oid(vec![ 1, 2, 840, 10045, 4, 3, 2 ]) /* ecdsaWithSHA256 (ANSI X9.62 ECDSA with SHA256) */
         .build();
 
-    let sign_key = std::fs::read("tests/data/ec.pkcs8").unwrap_or_else(|_| panic!("Not found"));
+    let sign_key = std::fs::read("tests/data/ec.pkcs8").expect("Not found");
     let cert = match x.sign(ec_sign_fn, &sign_key) {
         Some(c) => c,
         None => panic!("build() failed"),
@@ -259,27 +255,19 @@ fn x509_key_usage_extension() {
 
 #[test]
 fn x509_rsa_deserialize() {
-    let der = std::fs::read("tests/data/cert_rsa.der").unwrap_or_else(|_| panic!("Not found"));
-    let x = der
-        .x509_dec()
-        .unwrap_or_else(|| panic!("Failed to deserialize"));
+    let der = std::fs::read("tests/data/cert_rsa.der").expect("Not found");
+    let x = der.x509_dec().expect("Failed to deserialize");
 
-    let der2 = x
-        .x509_enc()
-        .unwrap_or_else(|| panic!("Failed to serialize"));
+    let der2 = x.x509_enc().expect("Failed to serialize");
     assert_eq!(der, der2);
 }
 
 #[test]
 fn x509_ec_deserialize() {
-    let der = std::fs::read("tests/data/cert_ec.der").unwrap_or_else(|_| panic!("Not found"));
-    let x = der
-        .x509_dec()
-        .unwrap_or_else(|| panic!("Failed to deserialize"));
+    let der = std::fs::read("tests/data/cert_ec.der").expect("Not found");
+    let x = der.x509_dec().expect("Failed to deserialize");
 
-    let der2 = x
-        .x509_enc()
-        .unwrap_or_else(|| panic!("Failed to serialize"));
+    let der2 = x.x509_enc().expect("Failed to serialize");
     assert_eq!(der, der2);
 }
 
@@ -319,9 +307,7 @@ fn x509_multiple_dec_enc() {
             }
         };
 
-        let der2 = x
-            .x509_enc()
-            .unwrap_or_else(|| panic!("Failed to serialize: {}", p));
+        let der2 = x.x509_enc().expect("Failed to serialize");
 
         assert_eq!(der, der2);
         counter += 1;
@@ -332,15 +318,11 @@ fn x509_multiple_dec_enc() {
 
 #[test]
 fn x509_rsa_verify() {
-    let der = std::fs::read("tests/data/cert_rsa.der").unwrap_or_else(|_| panic!("Not found"));
-    let x = der
-        .x509_dec()
-        .unwrap_or_else(|| panic!("Failed to deserialize"));
+    let der = std::fs::read("tests/data/cert_rsa.der").expect("Not found");
+    let x = der.x509_dec().expect("Failed to deserialize");
 
-    let pub_key = std::fs::read("tests/data/rsa_pub.der").unwrap_or_else(|_| panic!("Not found"));
-    let pub_key2 = x
-        .pub_key()
-        .unwrap_or_else(|| panic!("Failed to get Public Key"));
+    let pub_key = std::fs::read("tests/data/rsa_pub.der").expect("Not found");
+    let pub_key2 = x.pub_key().expect("Failed to get Public Key");
 
     assert_eq!(x.verify(rsa_verify_fn, &pub_key), Some(true));
     assert_eq!(x.verify(rsa_verify_fn, &pub_key2), Some(true));
@@ -348,31 +330,21 @@ fn x509_rsa_verify() {
 
 #[test]
 fn x509_ec_verify() {
-    let der = std::fs::read("tests/data/cert_ec.der").unwrap_or_else(|_| panic!("Not found"));
-    let x = der
-        .x509_dec()
-        .unwrap_or_else(|| panic!("Failed to deserialize"));
+    let der = std::fs::read("tests/data/cert_ec.der").expect("Not found");
+    let x = der.x509_dec().expect("Failed to deserialize");
 
-    let pub_key = x
-        .pub_key()
-        .unwrap_or_else(|| panic!("Failed to get Public Key"));
+    let pub_key = x.pub_key().expect("Failed to get Public Key");
 
     assert_eq!(x.verify(ec_verify_fn, &pub_key), Some(true));
 }
 
 #[test]
 fn x509_key_usage_decoding() {
-    let der =
-        std::fs::read("tests/data/cert_key_usage.der").unwrap_or_else(|_| panic!("Not found"));
+    let der = std::fs::read("tests/data/cert_key_usage.der").expect("Not found");
 
-    let x = der
-        .x509_dec()
-        .unwrap_or_else(|| panic!("Failed to deserialize"));
+    let x = der.x509_dec().expect("Failed to deserialize");
 
-    let key_usage = x
-        .ext
-        .key_usage()
-        .unwrap_or_else(|| panic!("KeyUsage extension is not found"));
+    let key_usage = x.ext.key_usage().expect("KeyUsage extension is not found");
 
     assert_eq!(
         key_usage,

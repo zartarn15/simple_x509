@@ -18,14 +18,14 @@
 //! ```no_run
 //! use simple_x509::*;
 //!
-//! fn sign_fn(data: &Vec<u8>, sign_key: &Vec<u8>) -> Option<Vec<u8>> {
+//! fn sign_fn(data: &[u8], sign_key: &[u8]) -> Option<Vec<u8>> {
 //!
 //!     // Signing implementation ...
 //!
 //!     Some(Vec::new())
 //! }
 //!
-//! fn verify_fn(pub_key: &Vec<u8>, data: &Vec<u8>, sign: &Vec<u8>) -> Option<bool> {
+//! fn verify_fn(pub_key: &[u8], data: &[u8], sign: &[u8]) -> Option<bool> {
 //!
 //!     // Verify implementation ...
 //!
@@ -59,16 +59,16 @@
 //!     let sign_key = std::fs::read("rsa.pkcs8").unwrap();
 //!
 //!     // Signing a certificate with external function
-//!     let cert = x.sign(sign_fn, &sign_key).unwrap_or_else(|| panic!("Signing failed"));
+//!     let cert = x.sign(sign_fn, &sign_key).expect("Signing failed");
 //!
 //!     // Encode to DER format
-//!     let der = cert.x509_enc().unwrap_or_else(|| panic!("x509_enc() failed"));
+//!     let der = cert.x509_enc().expect("x509_enc() failed");
 //!
 //!     // Decode
-//!     let x2 = der.x509_dec().unwrap_or_else(|| panic!("Failed to deserialize"));
+//!     let x2 = der.x509_dec().expect("Failed to deserialize");
 //!
 //!     // Getting Public Key in DER format from certificate
-//!     let pub_key2 = x2.pub_key().unwrap_or_else(|| panic!("Failed to get Public Key"));
+//!     let pub_key2 = x2.pub_key().expect("Failed to get Public Key");
 //!
 //!     // Verify signature with external function
 //!     let res = x2.verify(verify_fn, &pub_key2);

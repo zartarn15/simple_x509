@@ -24,8 +24,8 @@ fn build_key_usage(bits: Vec<X509KeyUsage>) -> Vec<u8> {
     let mut b: Vec<u8> = vec![0];
     let mut n: usize = 0;
 
-    for i in 0..bits.len() {
-        match bits[i] {
+    for it in &bits {
+        match it {
             X509KeyUsage::DigitalSignature => {
                 b[0] |= 1 << 7;
                 n = std::cmp::max(n, 1);
@@ -109,7 +109,7 @@ impl X509ExtBuilder {
     }
 }
 
-fn parse_key_usage(data: &Vec<u8>) -> Option<Vec<X509KeyUsage>> {
+fn parse_key_usage(data: &[u8]) -> Option<Vec<X509KeyUsage>> {
     let asn = simple_asn1::from_der(data).ok()?;
     let b = match asn.get(0)? {
         ASN1Block::BitString(_, _, b) => b,
