@@ -1,3 +1,4 @@
+use crate::Error;
 use simple_asn1::ASN1Block;
 
 #[derive(Debug, PartialEq)]
@@ -109,13 +110,7 @@ impl X509ExtBuilder {
     }
 }
 
-fn parse_key_usage(data: &[u8]) -> Option<Vec<X509KeyUsage>> {
-    let asn = simple_asn1::from_der(data).ok()?;
-    let b = match asn.get(0)? {
-        ASN1Block::BitString(_, _, b) => b,
-        _ => return None,
-    };
-
+fn parse_key_usage_bits(b: &[u8]) -> Option<Vec<X509KeyUsage>> {
     let mut bits = Vec::new();
 
     if b.get(0)? & (1 << 7) != 0 {
@@ -149,18 +144,28 @@ fn parse_key_usage(data: &[u8]) -> Option<Vec<X509KeyUsage>> {
     Some(bits)
 }
 
+fn parse_key_usage(data: &[u8]) -> Result<Vec<X509KeyUsage>, Error> {
+    let asn = simple_asn1::from_der(data).map_err(Error::KeyUsage)?;
+    let b = match asn.get(0).ok_or(Error::KeyUsageIdx0)? {
+        ASN1Block::BitString(_, _, b) => b,
+        _ => return Err(Error::KeyUsageBits),
+    };
+
+    parse_key_usage_bits(b).ok_or(Error::KeyUsageIdx1)
+}
+
 pub trait X509ExtDeserialize {
-    fn key_usage(&self) -> Option<Vec<X509KeyUsage>>;
+    fn key_usage(&self) -> Result<Vec<X509KeyUsage>, Error>;
 }
 
 impl X509ExtDeserialize for Vec<X509Ext> {
-    fn key_usage(&self) -> Option<Vec<X509KeyUsage>> {
+    fn key_usage(&self) -> Result<Vec<X509KeyUsage>, Error> {
         for e in self.iter() {
             if e.oid == vec![2, 5, 29, 15] {
                 return parse_key_usage(&e.data);
             }
         }
 
-        None
+        Err(Error::ExtDeserialize)
     }
 }

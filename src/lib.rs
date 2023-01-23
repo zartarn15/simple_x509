@@ -75,8 +75,10 @@
 //! }
 //! ```
 
+pub mod error;
 pub mod ext;
 pub mod x509;
 
+pub use error::*;
 pub use ext::*;
 pub use x509::*;

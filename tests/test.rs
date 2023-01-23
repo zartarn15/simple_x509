@@ -92,15 +92,8 @@ fn x509_rsa_root_test() {
         .build();
 
     let sign_key = std::fs::read("tests/data/rsa.pkcs8").expect("Not found");
-    let cert = match x.sign(rsa_sign_fn, &sign_key) {
-        Some(c) => c,
-        None => panic!("sign() failed"),
-    };
-
-    let der = match cert.x509_enc() {
-        Some(d) => d,
-        None => panic!("x509_enc() failed"),
-    };
+    let cert = x.sign(rsa_sign_fn, &sign_key).expect("sign() failed");
+    let der = cert.x509_enc().expect("x509_enc() failed");
 
     let err = std::fs::write("tests/data/ca_rsa.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
@@ -145,15 +138,8 @@ fn x509_ec_root_test() {
         .build();
 
     let sign_key = std::fs::read("tests/data/ec.pkcs8").expect("Not found");
-    let cert = match x.sign(ec_sign_fn, &sign_key) {
-        Some(c) => c,
-        None => panic!("sign() failed"),
-    };
-
-    let der = match cert.x509_enc() {
-        Some(d) => d,
-        None => panic!("x509_enc() failed"),
-    };
+    let cert = x.sign(ec_sign_fn, &sign_key).expect("sign() failed");
+    let der = cert.x509_enc().expect("x509_enc() failed");
 
     let err = std::fs::write("tests/data/ca_ec.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
@@ -190,15 +176,8 @@ fn x509_extension_raw() {
         .build();
 
     let sign_key = std::fs::read("tests/data/ec.pkcs8").expect("Not found");
-    let cert = match x.sign(ec_sign_fn, &sign_key) {
-        Some(c) => c,
-        None => panic!("sign() failed"),
-    };
-
-    let der = match cert.x509_enc() {
-        Some(d) => d,
-        None => panic!("x509_enc() failed"),
-    };
+    let cert = x.sign(ec_sign_fn, &sign_key).expect("sign() failed");
+    let der = cert.x509_enc().expect("x509_enc() failed");
 
     let err = std::fs::write("tests/data/ca_extension_raw.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
@@ -239,15 +218,8 @@ fn x509_key_usage_extension() {
         .build();
 
     let sign_key = std::fs::read("tests/data/ec.pkcs8").expect("Not found");
-    let cert = match x.sign(ec_sign_fn, &sign_key) {
-        Some(c) => c,
-        None => panic!("build() failed"),
-    };
-
-    let der = match cert.x509_enc() {
-        Some(d) => d,
-        None => panic!("x.x509_enc() failed"),
-    };
+    let cert = x.sign(ec_sign_fn, &sign_key).expect("sign() failed");
+    let der = cert.x509_enc().expect("x509_enc() failed");
 
     let err = std::fs::write("tests/data/ca_key_usage.der", &der).map_err(|e| e.kind());
     assert_eq!(err, Ok(()));
@@ -299,14 +271,7 @@ fn x509_multiple_dec_enc() {
             None => continue,
         };
 
-        let x = match der.x509_dec() {
-            Some(x) => x,
-            None => {
-                println!("Failed to deserialize: {}", p);
-                continue;
-            }
-        };
-
+        let x = der.x509_dec().expect("x509_dec() failed");
         let der2 = x.x509_enc().expect("Failed to serialize");
 
         assert_eq!(der, der2);
@@ -324,8 +289,8 @@ fn x509_rsa_verify() {
     let pub_key = std::fs::read("tests/data/rsa_pub.der").expect("Not found");
     let pub_key2 = x.pub_key().expect("Failed to get Public Key");
 
-    assert_eq!(x.verify(rsa_verify_fn, &pub_key), Some(true));
-    assert_eq!(x.verify(rsa_verify_fn, &pub_key2), Some(true));
+    assert_eq!(x.verify(rsa_verify_fn, &pub_key), Ok(true));
+    assert_eq!(x.verify(rsa_verify_fn, &pub_key2), Ok(true));
 }
 
 #[test]
@@ -335,7 +300,7 @@ fn x509_ec_verify() {
 
     let pub_key = x.pub_key().expect("Failed to get Public Key");
 
-    assert_eq!(x.verify(ec_verify_fn, &pub_key), Some(true));
+    assert_eq!(x.verify(ec_verify_fn, &pub_key), Ok(true));
 }
 
 #[test]
