@@ -778,58 +778,68 @@ pub trait X509Deserialize {
 
 impl X509Deserialize for Vec<u8> {
     fn x509_dec(&self) -> Result<X509, Error> {
-        let x509_full = simple_asn1::from_der(self).map_err(Error::DecFull)?;
-        let x509 = get_asn1_seq(&x509_full, 0)?;
-        let body = get_asn1_seq(x509, 0)?;
-
-        /* Version */
-        let version = get_version(body).ok();
-        let mut idx = match version {
-            Some(_) => 1,
-            None => 0,
-        };
-
-        /* Serial Number */
-        let sn = get_serial_number(body, idx)?;
-        idx += 1;
-
-        /* Signature Algorithm */
-        let sign_oid = get_sign_oid(body, idx)?;
-        idx += 1;
-
-        /* Issuer */
-        let issuer = get_x509_name(body, idx)?;
-        idx += 1;
-
-        /* Validity time */
-        let (not_before, not_after) = get_x509_time(body, idx)?;
-        idx += 1;
-
-        /* Subject */
-        let subject = get_x509_name(body, idx)?;
-        idx += 1;
-
-        /* Subject Public Key Info */
-        let pub_key = get_pub_key(body, idx)?;
-        idx += 1;
-
-        /* Extensions */
-        let ext = get_extensions(body, idx)?;
-
-        /* Signature */
-        let sign = get_signature(x509)?;
-
-        Ok(X509 {
-            version,
-            sn,
-            issuer,
-            subject,
-            not_before: Some(not_before),
-            not_after: Some(not_after),
-            pub_key: Some(pub_key),
-            ext,
-            sign_oid,
-            sign,
-        })
+        x509_decode(self)
     }
+}
+
+impl X509Deserialize for &[u8] {
+    fn x509_dec(&self) -> Result<X509, Error> {
+        x509_decode(self)
+    }
+}
+
+fn x509_decode(der: &[u8]) -> Result<X509, Error> {
+    let x509_full = simple_asn1::from_der(der).map_err(Error::DecFull)?;
+    let x509 = get_asn1_seq(&x509_full, 0)?;
+    let body = get_asn1_seq(x509, 0)?;
+
+    /* Version */
+    let version = get_version(body).ok();
+    let mut idx = match version {
+        Some(_) => 1,
+        None => 0,
+    };
+
+    /* Serial Number */
+    let sn = get_serial_number(body, idx)?;
+    idx += 1;
+
+    /* Signature Algorithm */
+    let sign_oid = get_sign_oid(body, idx)?;
+    idx += 1;
+
+    /* Issuer */
+    let issuer = get_x509_name(body, idx)?;
+    idx += 1;
+
+    /* Validity time */
+    let (not_before, not_after) = get_x509_time(body, idx)?;
+    idx += 1;
+
+    /* Subject */
+    let subject = get_x509_name(body, idx)?;
+    idx += 1;
+
+    /* Subject Public Key Info */
+    let pub_key = get_pub_key(body, idx)?;
+    idx += 1;
+
+    /* Extensions */
+    let ext = get_extensions(body, idx)?;
+
+    /* Signature */
+    let sign = get_signature(x509)?;
+
+    Ok(X509 {
+        version,
+        sn,
+        issuer,
+        subject,
+        not_before: Some(not_before),
+        not_after: Some(not_after),
+        pub_key: Some(pub_key),
+        ext,
+        sign_oid,
+        sign,
+    })
 }
