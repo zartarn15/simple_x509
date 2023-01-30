@@ -320,3 +320,14 @@ fn x509_key_usage_decoding() {
         ]
     );
 }
+
+#[test]
+fn x509_custom_key_algo() {
+    let der = std::fs::read("tests/data/dilithium5.der").unwrap();
+    let x = der.x509_dec().expect("x509_dec() failed");
+    let der2 = x.x509_enc().expect("Failed to serialize");
+
+    std::fs::write("/tmp/cert.der", &der2).unwrap();
+
+    assert_eq!(der, der2);
+}

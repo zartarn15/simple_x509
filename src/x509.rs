@@ -43,6 +43,7 @@ pub struct EcPub {
 pub enum PubKey {
     Rsa(RsaPub),
     Ec(EcPub),
+    Any(Vec<ASN1Block>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -215,6 +216,7 @@ fn build_pub_key(pub_key: &Option<PubKey>) -> Result<Vec<ASN1Block>, Error> {
     match pub_key {
         Some(PubKey::Rsa(ref rsa)) => rsa_pub(rsa),
         Some(PubKey::Ec(ref ec)) => ec_pub(ec),
+        Some(PubKey::Any(ref key)) => Ok(key.to_vec()),
         None => Err(Error::NoPubKey),
     }
 }
@@ -234,6 +236,7 @@ fn x509_body(x: &X509) -> Result<Vec<ASN1Block>, Error> {
     match x.pub_key {
         Some(PubKey::Rsa(_)) => body.push(ASN1Block::Sequence(0, null_oid(&x.sign_oid))),
         Some(PubKey::Ec(_)) => body.push(ASN1Block::Sequence(0, vec_oid(&x.sign_oid))),
+        Some(PubKey::Any(_)) => body.push(ASN1Block::Sequence(0, vec_oid(&x.sign_oid))),
         None => return Err(Error::NoPubKeyBody),
     }
 
@@ -339,6 +342,7 @@ impl X509 {
         match self.pub_key {
             Some(PubKey::Rsa(_)) => x509.push(ASN1Block::Sequence(0, null_oid(&self.sign_oid))),
             Some(PubKey::Ec(_)) => x509.push(ASN1Block::Sequence(0, vec_oid(&self.sign_oid))),
+            Some(PubKey::Any(_)) => x509.push(ASN1Block::Sequence(0, vec_oid(&self.sign_oid))),
             None => return Err(Error::NoPubKeyEnc),
         }
 
@@ -681,14 +685,16 @@ fn get_ec_pub_key(v: &[ASN1Block], idx: usize) -> Result<PubKey, Error> {
     }))
 }
 
+fn get_any_pub_key(v: &[ASN1Block], idx: usize) -> Result<PubKey, Error> {
+    let vec = get_asn1_seq(v, idx)?;
+
+    Ok(PubKey::Any(vec.to_vec()))
+}
+
 fn get_pub_key(v: &[ASN1Block], idx: usize) -> Result<PubKey, Error> {
-    match get_rsa_pub_key(v, idx) {
-        Ok(k) => Ok(k),
-        Err(e) => match get_ec_pub_key(v, idx) {
-            Ok(k) => Ok(k),
-            Err(_) => Err(e),
-        },
-    }
+    // TODO: get algorithm from OID
+    Ok(get_rsa_pub_key(v, idx)
+        .unwrap_or(get_ec_pub_key(v, idx).unwrap_or(get_any_pub_key(v, idx)?)))
 }
 
 fn get_pub_der(der: &[u8]) -> Result<PubKey, Error> {

@@ -54,6 +54,7 @@ pub enum Error {
     EcPubCurve,
     EcPubGet2,
     EcPubKey,
+    AnyPubKey(ASN1EncodeErr),
     PubDec(ASN1DecodeErr),
     TimeIdx0,
     TimeNb,
