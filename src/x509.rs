@@ -128,13 +128,19 @@ fn validity_time(not_before: &X509Time, not_after: &X509Time) -> Vec<ASN1Block> 
     let mut v = Vec::new();
 
     match not_before {
-        X509Time::Utc(nb) => v.push(ASN1Block::UTCTime(0, Utc.timestamp(*nb, 0))),
-        X509Time::Gen(nb) => v.push(ASN1Block::GeneralizedTime(0, Utc.timestamp(*nb, 0))),
+        X509Time::Utc(nb) => v.push(ASN1Block::UTCTime(0, Utc.timestamp_opt(*nb, 0).unwrap())),
+        X509Time::Gen(nb) => v.push(ASN1Block::GeneralizedTime(
+            0,
+            Utc.timestamp_opt(*nb, 0).unwrap(),
+        )),
     }
 
     match not_after {
-        X509Time::Utc(na) => v.push(ASN1Block::UTCTime(0, Utc.timestamp(*na, 0))),
-        X509Time::Gen(na) => v.push(ASN1Block::GeneralizedTime(0, Utc.timestamp(*na, 0))),
+        X509Time::Utc(na) => v.push(ASN1Block::UTCTime(0, Utc.timestamp_opt(*na, 0).unwrap())),
+        X509Time::Gen(na) => v.push(ASN1Block::GeneralizedTime(
+            0,
+            Utc.timestamp_opt(*na, 0).unwrap(),
+        )),
     }
 
     v
